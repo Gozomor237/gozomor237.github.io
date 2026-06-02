@@ -563,10 +563,10 @@
     };
     const callbacks = {
       onReadyForServerApproval: async (paymentId) => {
-        
+        await fetch('https://agrossignol-backend.vercel.app/payment/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paymentId})});
       },
       onReadyForServerCompletion: async (paymentId, txid) => {
-        
+        await fetch('https://agrossignol-backend.vercel.app/payment/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paymentId,txid:payment.transaction?.txid})});
         closeModal();
         showToast('🎉 Achat réussi ! Merci d\'utiliser Agrossignol');
       },
