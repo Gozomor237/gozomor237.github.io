@@ -6,12 +6,15 @@ app.use(cors());
 app.use(express.json());
 
 app.post('/payment/approve', (req, res) => {
-  res.json({ message: 'approved' });
+  res.json({ approved: true });
 });
 
 app.post('/payment/complete', (req, res) => {
-  res.json({ message: 'completed' });
+  res.json({ completed: true });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('Server running on port ' + PORT));
+app.get('/', (req, res) => {
+  res.json({ status: 'Agrossignol Backend OK' });
+});
+
+module.exports = app;
