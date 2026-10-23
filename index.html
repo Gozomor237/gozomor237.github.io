@@ -122,7 +122,7 @@ footer a{color:var(--gold)}
 
 <section class="view" id="v-msg">
   <h2>Messages</h2>
-  <div class="panel"><div class="empty" style="grid-column:auto"><span class="big">💬</span>Discutez bientôt avec les vendeurs et les acheteurs. Pour l'instant, touchez « Contacter » sur le profil d'un vendeur pour l'appeler sur WhatsApp.</div></div>
+  <div class="panel"><div class="empty" style="grid-column:auto"><span class="big">💬</span>Discutez bientôt avec les vendeurs et les acheteurs. Pour l'instant, touchez « Contacter » sur une publication pour écrire sur WhatsApp.</div></div>
 </section>
 
 <section class="view" id="v-me">
@@ -268,7 +268,7 @@ function renderStories(){
   const names=[...new Set(all().map(p=>p.seller))].slice(0,8);
   document.getElementById('stories').innerHTML=
    '<button class="story add" onclick="openPublish()"><div class="ava">+</div>Publier</button>'+
-   names.map(n=>{const p=sellerOf(n)[0];return `<button class="story" onclick="openSeller('${esc(n).replace(/'/g,"\\'")}')"><div class="ava">${p.emoji}</div>${esc(n.length>10?n.slice(0,9)+'…':n)}</button>`}).join('');
+   names.map(n=>{const p=sellerOf(n)[0];return `<button class="story" data-s="${esc(n)}" onclick="openSeller(this.dataset.s)"><div class="ava">${p.emoji}</div>${esc(n.length>10?n.slice(0,9)+'…':n)}</button>`}).join('');
 }
 
 function renderFeed(){
@@ -325,7 +325,6 @@ function wa(id){
   const p=id?all().find(x=>x.id==id):null;
   const t=p?`Bonjour, je suis intéressé par « ${p.name} » sur Agrossignol.`:`Bonjour, je vous contacte depuis Agrossignol.`;
   window.open('https://wa.me/237698560650?text='+encodeURIComponent(t),'_blank');
-  toast('Demo : le numéro du vendeur sera ajouté bientôt');
 }
 
 function openSeller(n,keep){
