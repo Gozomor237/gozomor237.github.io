@@ -1,4 +1,4 @@
-   <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -59,9 +59,10 @@ main { width: 100%; max-width: 480px; padding: 24px 16px 40px; display: flex; fl
 .pi-payment-card h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--pi-violet); margin-bottom: 8px; font-weight: 500; }
 .pi-payment-card p { font-size: 14px; color: #555; margin-bottom: 14px; font-weight: 300; line-height: 1.5; }
 .pi-btn { background: var(--pi-violet); color: white; border: none; border-radius: 12px; padding: 14px 24px; font-size: 15px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s; }
+.avertissement { font-size: 12px; color: var(--gris); text-align: center; line-height: 1.5; }
 #new-analysis-btn { width: 100%; background: transparent; color: var(--vert); border: 2px solid var(--vert); border-radius: 16px; padding: 14px; font-size: 15px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.3s; display: none; }
 #error { display: none; background: #fff5f5; border: 1.5px solid #fca5a5; border-radius: 16px; padding: 20px; text-align: center; }
-#error p { color: var(--rouge); font-size: 15px; }
+#error p { color: var(--rouge); font-size: 15px; line-height: 1.5; }
 #error button { margin-top: 12px; background: var(--rouge); color: white; border: none; border-radius: 10px; padding: 10px 20px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; }
 </style>
 </head>
@@ -79,7 +80,7 @@ main { width: 100%; max-width: 480px; padding: 24px 16px 40px; display: flex; fl
     <p>Photographiez votre plante malade et l'IA l'analysera instantanément</p>
   </div>
   <div class="upload-zone" id="upload-zone">
-    <input type="file" id="file-input" accept="image/*" capture="environment">
+    <input type="file" id="file-input" accept="image/*">
     <div class="icon">📸</div>
     <p>Prendre une photo ou choisir depuis la galerie</p>
     <small>Formats acceptés : JPG, PNG, WEBP</small>
@@ -102,25 +103,58 @@ main { width: 100%; max-width: 480px; padding: 24px 16px 40px; display: flex; fl
   <button id="new-analysis-btn" onclick="resetUpload()">🔄 Nouvelle analyse</button>
 </main>
 <script>
-const GEMINI_KEY = 'AIzaSyBqNVVdcm-KLbGDCYhwYOxfIrVf2p7vrSA';
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_KEY}`;
+// Le serveur Agrossignol contacte l'IA : aucune clé secrète n'est stockée dans cette page.
+const API_URL = 'https://agrossignol-backend.vercel.app/diagnostic';
 
 let imageBase64 = null;
-let imageMimeType = 'image/jpeg';
 
-document.getElementById('file-input').addEventListener('change', function(e) {
-  const file = e.target.files[0];
+function echapper(t) {
+  return String(t == null ? '' : t).replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function afficherErreur(message) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error-msg').textContent = '❌ ' + message;
+  document.getElementById('error').style.display = 'block';
+}
+
+// Réduit la photo (1280 px max, JPEG) pour un envoi rapide et léger
+function reduireImage(file, max) {
+  max = max || 1280;
+  return new Promise(function(resolve, reject) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function() {
+      var ratio = Math.min(1, max / Math.max(img.width, img.height));
+      var w = Math.round(img.width * ratio);
+      var h = Math.round(img.height * ratio);
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+    };
+    img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('Image illisible')); };
+    img.src = url;
+  });
+}
+
+document.getElementById('file-input').addEventListener('change', async function(e) {
+  var file = e.target.files[0];
   if (!file) return;
-  imageMimeType = file.type || 'image/jpeg';
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    imageBase64 = ev.target.result.split(',')[1];
-    document.getElementById('preview-img').src = ev.target.result;
+  try {
+    var dataUrl = await reduireImage(file);
+    imageBase64 = dataUrl.split(',')[1];
+    document.getElementById('preview-img').src = dataUrl;
     document.getElementById('upload-zone').style.display = 'none';
     document.getElementById('preview-container').style.display = 'block';
     document.getElementById('analyze-btn').style.display = 'flex';
-  };
-  reader.readAsDataURL(file);
+    document.getElementById('error').style.display = 'none';
+  } catch (err) {
+    afficherErreur("Cette image ne peut pas être lue. Essayez avec une autre photo (JPG ou PNG).");
+  }
 });
 
 function resetUpload() {
@@ -138,74 +172,91 @@ function resetUpload() {
 
 async function analyzeImage() {
   if (!imageBase64) return;
+  if (!navigator.onLine) {
+    afficherErreur("Pas de connexion Internet. Vérifiez votre réseau puis réessayez.");
+    return;
+  }
   document.getElementById('analyze-btn').style.display = 'none';
   document.getElementById('preview-container').style.display = 'none';
   document.getElementById('loading').style.display = 'block';
   document.getElementById('result').style.display = 'none';
   document.getElementById('error').style.display = 'none';
 
-  const prompt = `Tu es un expert agronome. Analyse cette image de plante et réponds UNIQUEMENT en JSON valide sans markdown, avec cette structure exacte:
-{"maladie":"nom de la maladie ou Plante saine","emoji":"emoji état","severite":"faible ou moyenne ou élevée ou aucune","description":"1-2 phrases","confiance":85,"traitements":[{"emoji":"🌿","texte":"traitement 1"},{"emoji":"💧","texte":"traitement 2"},{"emoji":"☀️","texte":"traitement 3"}],"produit_recommande":"produit naturel"}
-Si ce n'est pas une plante, mets maladie: Image non reconnue et severite: aucune.`;
+  var controleur = new AbortController();
+  var minuteur = setTimeout(function() { controleur.abort(); }, 60000);
 
   try {
-    const response = await fetch(API_URL, {
+    var response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { inline_data: { mime_type: imageMimeType, data: imageBase64 } },
-            { text: prompt }
-          ]
-        }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 800 }
-      })
+      body: JSON.stringify({ image: imageBase64, mimeType: 'image/jpeg' }),
+      signal: controleur.signal
     });
-
-    const data = await response.json();
-
-    if (data.error) throw new Error(data.error.message);
-    if (!data.candidates || !data.candidates[0]) throw new Error('Pas de réponse de l\'IA');
-
-    const text = data.candidates[0].content.parts[0].text;
-    const clean = text.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(clean);
-    showResult(result);
-
-  } catch(e) {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('error-msg').textContent = '❌ Erreur: ' + (e.message || 'Vérifiez votre connexion');
-    document.getElementById('error').style.display = 'block';
+    var data = {};
+    try { data = await response.json(); } catch (e) { data = {}; }
+    if (!response.ok) {
+      throw new Error(data.erreur || "Le service d'analyse est indisponible. Réessayez dans quelques minutes.");
+    }
+    showResult(data);
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      afficherErreur("L'analyse prend trop de temps. Vérifiez votre connexion et réessayez.");
+    } else if (e instanceof TypeError) {
+      afficherErreur("Impossible de joindre le service. Vérifiez votre connexion Internet.");
+    } else {
+      afficherErreur(e.message || "Une erreur s'est produite. Réessayez.");
+    }
+  } finally {
+    clearTimeout(minuteur);
   }
 }
 
 function showResult(r) {
   document.getElementById('loading').style.display = 'none';
-  const severiteLabel = { 'faible':'Sévérité faible','moyenne':'Sévérité moyenne','élevée':'Sévérité élevée','aucune':'Plante saine' };
-  const severiteClass = { 'faible':'severity-low','moyenne':'severity-medium','élevée':'severity-high','aucune':'severity-low' };
-  const traitements = r.traitements.map(t => `<div class="treatment-item"><span class="t-icon">${t.emoji}</span><p>${t.texte}</p></div>`).join('');
-  const isSaine = r.severite === 'aucune';
-  document.getElementById('result').innerHTML = `
-    <div class="result-header">
-      <span class="status-icon">${r.emoji}</span>
-      <div><h3>${r.maladie}</h3><p>${r.description}</p>
-      <span class="severity-badge ${severiteClass[r.severite]}">${severiteLabel[r.severite]}</span></div>
-    </div>
-    <div class="card">
-      <h4>🎯 Niveau de confiance</h4>
-      <div class="confidence-bar"><div class="confidence-fill" style="width:${r.confiance}%"></div></div>
-      <div class="confidence-label"><span>Précision IA</span><span><strong>${r.confiance}%</strong></span></div>
-    </div>
-    ${!isSaine ? `
-    <div class="card"><h4>💊 Traitements recommandés</h4><div class="treatment-list">${traitements}</div></div>
-    <div class="pi-payment-card">
-      <h4>🪙 Produit recommandé</h4>
-      <p>Achetez <strong>${r.produit_recommande}</strong> via Agrossignol, payez en Pi Network</p>
-      <button class="pi-btn" onclick="simulerPaiementPi()"><span>π</span> Acheter avec Pi Network</button>
-    </div>` : `
-    <div class="card"><h4>✅ Conseils d'entretien</h4><div class="treatment-list">${traitements}</div></div>`}
-  `;
+  var severiteLabel = { 'faible': 'Sévérité faible', 'moyenne': 'Sévérité moyenne', 'élevée': 'Sévérité élevée', 'aucune': 'Plante saine' };
+  var severiteClass = { 'faible': 'severity-low', 'moyenne': 'severity-medium', 'élevée': 'severity-high', 'aucune': 'severity-low' };
+  var sev = severiteLabel[r.severite] ? r.severite : 'aucune';
+  var isSaine = sev === 'aucune';
+  var confiance = Math.max(0, Math.min(100, Number(r.confiance) || 0));
+
+  var traitements = (r.traitements || []).map(function(t) {
+    return '<div class="treatment-item"><span class="t-icon">' + echapper(t.emoji || '🌿') + '</span><p>' + echapper(t.texte) + '</p></div>';
+  }).join('');
+  var symptomes = (r.symptomes || []).map(function(s) {
+    return '<div class="treatment-item"><span class="t-icon">🔎</span><p>' + echapper(s) + '</p></div>';
+  }).join('');
+  var prevention = (r.prevention || []).map(function(p) {
+    return '<div class="treatment-item"><span class="t-icon">🛡️</span><p>' + echapper(p) + '</p></div>';
+  }).join('');
+
+  var html = ''
+    + '<div class="result-header">'
+    +   '<span class="status-icon">' + echapper(r.emoji || '🌿') + '</span>'
+    +   '<div><h3>' + echapper(r.maladie || 'Résultat') + '</h3><p>' + echapper(r.description) + '</p>'
+    +   '<span class="severity-badge ' + severiteClass[sev] + '">' + severiteLabel[sev] + '</span></div>'
+    + '</div>'
+    + '<div class="card">'
+    +   '<h4>🎯 Niveau de confiance</h4>'
+    +   '<div class="confidence-bar"><div class="confidence-fill" style="width:' + confiance + '%"></div></div>'
+    +   '<div class="confidence-label"><span>Précision IA</span><span><strong>' + confiance + '%</strong></span></div>'
+    + '</div>';
+
+  if (symptomes) html += '<div class="card"><h4>🔎 Symptômes observés</h4><div class="treatment-list">' + symptomes + '</div></div>';
+  if (traitements) {
+    html += '<div class="card"><h4>' + (isSaine ? "✅ Conseils d'entretien" : '💊 Traitements recommandés') + '</h4><div class="treatment-list">' + traitements + '</div></div>';
+  }
+  if (prevention) html += '<div class="card"><h4>🛡️ Prévention</h4><div class="treatment-list">' + prevention + '</div></div>';
+
+  if (!isSaine && r.produit_recommande) {
+    html += '<div class="pi-payment-card">'
+      + '<h4>🪙 Produit recommandé</h4>'
+      + '<p>Achetez <strong>' + echapper(r.produit_recommande) + '</strong> via Agrossignol, payez en Pi Network</p>'
+      + '<button class="pi-btn" onclick="simulerPaiementPi()"><span>π</span> Acheter avec Pi Network</button>'
+      + '</div>';
+  }
+  html += '<p class="avertissement">Ce diagnostic est une estimation faite par une IA. En cas de doute, consultez un technicien agricole.</p>';
+
+  document.getElementById('result').innerHTML = html;
   document.getElementById('result').style.display = 'flex';
   document.getElementById('new-analysis-btn').style.display = 'block';
 }
@@ -216,4 +267,3 @@ function simulerPaiementPi() {
 </script>
 </body>
 </html>
- 
