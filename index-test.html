@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AGROSSIGNOL — Plateforme agricole numérique panafricaine</title>
+<meta name="description" content="AGROSSIGNOL : marché agricole, diagnostic des plantes par IA et paiement Pi Network pour les producteurs d'Afrique."/>
+<meta name="theme-color" content="#17422f"/>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%2317422f'/%3E%3Cpath fill='%23f4a15d' d='M17 6C9 8 7.3 13.6 5.6 18.2l1.5.5.9-2A4 4 0 0 0 9 17c9.5 0 12-7.700 12-15.500-1.700 1.700-3.500 3.500-4 4.500z'/%3E%3C/svg%3E"/>
+<script src="https://sdk.minepi.com/pi-sdk.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet"/>
+<style>
+:root{--vert:#17422f;--vert2:#2f7a57;--menthe:#e6f0e4;--or:#c4561a;--orl:#f4a15d;--creme:#fefae0;--terre:#5a3a1e;--texte:#1b1b1b;--gris:#ece6d3;--r:14px;--ombre:0 1px 3px rgba(23,66,47,.08),0 4px 14px rgba(23,66,47,.06)}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:var(--creme);color:var(--texte);padding-bottom:96px;font-size:16px;line-height:1.4}
+button{font-family:inherit;cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--orl);outline-offset:2px}
+header{background:var(--vert);padding:10px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.2)}
+.hin{max-width:1100px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.logo{display:flex;align-items:center;gap:9px;color:var(--creme);text-decoration:none}
+.logo svg{width:30px;height:30px;flex-shrink:0}
+.logo b{font-family:'Playfair Display',serif;font-weight:900;font-size:1.25rem;letter-spacing:.07em}
+#btn-login{background:var(--orl);color:var(--vert);border:0;padding:10px 16px;min-height:42px;border-radius:50px;font-weight:700;font-size:.85rem}
+#user-info{display:none;align-items:center;gap:8px;color:var(--creme);font-size:.85rem;min-width:0}
+#user-info span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px}
+.ava{width:38px;height:38px;border-radius:50%;background:var(--or);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+main{max-width:1100px;margin:auto}
+.view{display:none;padding:16px 14px 0}
+.view.on{display:block}
+h2{font-family:'Playfair Display',serif;color:var(--vert);font-size:1.35rem;margin:6px 0 12px;line-height:1.2}
+.ph{position:relative;overflow:hidden;background:linear-gradient(150deg,var(--a,#2f7a57),#17422f);flex-shrink:0}
+.ph::after{content:attr(data-i);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:900;font-size:1.7rem;color:rgba(255,255,255,.5)}
+.ph img{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:cover}
+.hero{position:relative;border-radius:18px;overflow:hidden;min-height:250px;display:flex;align-items:flex-end;color:#fff;margin-bottom:18px;background:repeating-linear-gradient(100deg,#17422f 0 22px,#1b4a35 22px 44px)}
+.hero>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(14,42,29,.94) 8%,rgba(14,42,29,.35) 70%)}
+.hc{position:relative;z-index:1;padding:20px 16px 16px;width:100%}
+.tag{font-size:.8rem;color:var(--orl);font-weight:700;margin-bottom:6px}
+.hero h1{font-family:'Playfair Display',serif;font-size:1.65rem;line-height:1.18;margin-bottom:14px;max-width:20ch}
+.sbar{display:flex;background:#fff;border-radius:50px;padding:5px 5px 5px 18px;align-items:center;max-width:560px}
+.sbar input{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:1rem;background:none;color:var(--texte)}
+.sbar button{background:var(--or);color:#fff;border:0;border-radius:50px;padding:11px 18px;min-height:44px;font-weight:700;font-size:.9rem}
+.sec{display:flex;justify-content:space-between;align-items:baseline}
+.sec button{background:none;border:0;color:var(--or);font-weight:700;font-size:.85rem;padding:6px 0}
+.cats{display:flex;gap:10px;overflow-x:auto;padding:2px 0 14px;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cat{position:relative;flex-shrink:0;width:104px;height:128px;border:0;border-radius:var(--r);overflow:hidden;padding:0;text-align:left;color:#fff;box-shadow:var(--ombre)}
+.cat .ph{position:absolute;inset:0}
+.cat::after{content:"";position:absolute;inset:0;z-index:2;background:linear-gradient(to top,rgba(10,30,20,.85),transparent 60%)}
+.cat span{position:absolute;left:10px;right:8px;bottom:9px;z-index:3;font-weight:700;font-size:.85rem}
+.diag{display:flex;align-items:center;gap:14px;text-decoration:none;background:var(--vert);color:#fff;border-radius:18px;padding:14px;margin:4px 0 18px;box-shadow:var(--ombre)}
+.diag .ph{width:76px;height:76px;border-radius:14px}
+.diag b{display:block;font-family:'Playfair Display',serif;font-size:1.1rem;margin-bottom:2px}
+.diag small{display:block;opacity:.85;font-size:.82rem;margin-bottom:8px}
+.diag em{font-style:normal;display:inline-block;background:var(--orl);color:var(--vert);border-radius:50px;padding:7px 14px;font-weight:700;font-size:.82rem}
+.svc{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.svc a,.svc button{background:#fff;border:0;border-left:4px solid var(--or);border-radius:12px;padding:12px;text-align:left;text-decoration:none;color:var(--texte);box-shadow:var(--ombre);display:block}
+.svc b{display:block;color:var(--vert);font-size:.92rem;margin-bottom:2px}
+.svc small{color:#5f5f5f;font-size:.78rem;line-height:1.35;display:block}
+.stories{display:flex;gap:12px;overflow-x:auto;padding:2px 0 14px;scrollbar-width:none}
+.stories::-webkit-scrollbar{display:none}
+.story{flex-shrink:0;width:68px;text-align:center;font-size:.72rem;border:0;background:none;color:var(--texte)}
+.story .ava{width:56px;height:56px;font-size:1.3rem;margin:0 auto 4px;background:var(--vert2)}
+.story.add .ava{background:none;border:2px dashed var(--vert2);color:var(--vert);font-size:1.8rem}
+.composer{background:#fff;border-radius:var(--r);padding:10px 12px;display:flex;gap:10px;align-items:center;margin-bottom:16px;box-shadow:var(--ombre)}
+.composer .ava{background:var(--vert2)}
+.composer button.fake{flex:1;text-align:left;background:var(--gris);border:0;border-radius:50px;padding:12px 16px;min-height:44px;color:#5f5f5f;font-size:.9rem}
+#feed{display:grid;grid-template-columns:1fr;gap:12px}
+.post{background:#fff;border-radius:var(--r);box-shadow:var(--ombre);overflow:hidden}
+.post-head{display:flex;align-items:center;gap:10px;padding:12px 12px 4px}
+.post-head .ava{background:var(--vert2)}
+.post-head .who{flex:1;min-width:0}
+.post-head b{display:block;font-size:.92rem;cursor:pointer}
+.post-head small{color:#5f5f5f;font-size:.76rem}
+.btn-follow{border:1.5px solid var(--vert);color:var(--vert);background:none;border-radius:50px;padding:7px 14px;min-height:36px;font-size:.8rem;font-weight:700}
+.btn-follow.on{background:var(--vert);color:#fff}
+.post-text{padding:2px 12px 10px;font-size:.92rem;line-height:1.5}
+.post-prod{margin:0 12px 12px;background:var(--menthe);border-radius:12px;display:flex;align-items:center;gap:12px;padding:8px}
+.post-prod .ph{width:72px;height:72px;border-radius:10px}
+.post-prod .info{flex:1;min-width:0}
+.post-prod .nm{font-weight:700;font-size:.93rem}
+.pr{font-family:'Playfair Display',serif;color:var(--vert);font-weight:700}
+.pr span{font-family:'DM Sans',sans-serif;font-size:.74rem;font-weight:400;color:#5f5f5f}
+.btn-buy{background:var(--or);color:#fff;border:0;border-radius:50px;padding:10px 16px;min-height:40px;font-weight:700;font-size:.82rem}
+.actions{display:flex;border-top:1px solid var(--gris)}
+.actions button{flex:1;background:none;border:0;padding:13px 0;font-size:.84rem;color:#555;font-weight:500}
+.actions button.liked{color:var(--or);font-weight:700}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;background:#fff;border:2px solid var(--gris);border-radius:50px;padding:8px 15px;min-height:40px;font-size:.84rem;font-weight:500;color:var(--vert)}
+.chip.on{background:var(--vert);border-color:var(--vert);color:#fff}
+.search{width:100%;border:2px solid var(--gris);border-radius:50px;padding:12px 18px;font-size:1rem;font-family:inherit;margin-bottom:10px;background:#fff}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.card{background:#fff;border-radius:var(--r);overflow:hidden;box-shadow:var(--ombre)}
+.card .ph{height:112px}
+.card .bd{padding:10px 12px 12px}
+.card .n{font-weight:700;font-size:.9rem;margin-bottom:2px}
+.card .s{font-size:.76rem;color:var(--vert2);margin-bottom:8px;border:0;background:none;padding:2px 0;text-align:left}
+.card .ft{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
+.card .btn-buy{padding:8px 12px;min-height:36px;font-size:.76rem}
+.empty{text-align:center;color:#5f5f5f;padding:36px 20px;font-size:.92rem;line-height:1.6;grid-column:1/-1}
+.btn-main{background:var(--vert);color:#fff;border:0;border-radius:50px;padding:13px 24px;min-height:46px;font-weight:700;font-size:.95rem;margin-top:12px}
+.btn-alt{display:block;width:100%;background:none;border:2px solid var(--gris);color:#555;border-radius:50px;padding:12px;margin-top:10px;font-size:.9rem}
+.panel{background:#fff;border-radius:var(--r);padding:16px;margin-bottom:14px;box-shadow:var(--ombre)}
+.profile-top{display:flex;gap:14px;align-items:center}
+.profile-top .ava{width:62px;height:62px;font-size:1.6rem;background:var(--vert2)}
+.stats{display:flex;gap:26px;margin:14px 0;font-size:.8rem;color:#5f5f5f}
+.stats b{display:block;font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--vert)}
+nav.bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--gris);z-index:100;padding-bottom:env(safe-area-inset-bottom,0);box-shadow:0 -4px 16px rgba(23,66,47,.08)}
+.nin{max-width:640px;margin:auto;display:flex;align-items:flex-end}
+nav.bottom button{flex:1;background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 8px;color:#6a6a6a;font-size:.7rem;min-height:56px}
+nav.bottom svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+nav.bottom button.on{color:var(--vert);font-weight:700}
+nav.bottom button.pub{color:var(--or);font-weight:700}
+nav.bottom button.pub .ic{background:var(--or);width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-top:-24px;box-shadow:0 4px 14px rgba(196,86,26,.45);border:3px solid #fff}
+nav.bottom button.pub svg{stroke:#fff;width:26px;height:26px}
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
+.ov.open{display:flex}
+.modal{background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 34px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:up .25s ease}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+@media (prefers-reduced-motion:reduce){.modal{animation:none}#toast{transition:none}}
+.modal h3{font-family:'Playfair Display',serif;color:var(--vert);font-size:1.25rem;margin-bottom:12px}
+.modal label{display:block;font-size:.82rem;font-weight:700;margin:10px 0 4px;color:var(--terre)}
+.modal input,.modal select,.modal textarea{width:100%;border:2px solid var(--gris);border-radius:12px;padding:11px 12px;font-size:1rem;font-family:inherit;background:#fff}
+.modal .row{display:flex;gap:10px}
+.pi-note{background:var(--gris);border-radius:12px;padding:12px;font-size:.84rem;color:#4a4a4a;margin:12px 0 16px}
+.btn-confirm{width:100%;background:var(--vert);color:#fff;border:0;padding:15px;border-radius:50px;font-size:1rem;font-weight:700;margin-top:14px}
+.mini{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--gris)}
+.mini .ph{width:52px;height:52px;border-radius:10px}
+.mini .ph::after{font-size:1.2rem}
+.mini .info{flex:1;min-width:0}
+#toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(140px);background:var(--vert);color:#fff;padding:12px 22px;border-radius:50px;font-size:.88rem;transition:transform .35s;z-index:999;max-width:90%;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+#toast.show{transform:translateX(-50%)}
+footer{background:var(--vert);color:var(--creme);text-align:center;padding:28px 20px;font-size:.85rem;line-height:1.9;margin-top:24px}
+footer b.w{font-family:'Playfair Display',serif;font-size:1.25rem;letter-spacing:.08em}
+footer a{color:var(--orl)}
+@media(min-width:640px){.view{padding:22px 22px 0}.grid{grid-template-columns:repeat(3,1fr)}#feed{grid-template-columns:1fr 1fr}.svc{grid-template-columns:repeat(4,1fr)}.hero{min-height:320px}.hc{padding:34px}.hero h1{font-size:2.3rem}.ov{align-items:center}.modal{border-radius:24px}}
+@media(min-width:960px){.grid{grid-template-columns:repeat(4,1fr)}#feed{grid-template-columns:repeat(3,1fr)}.cats{flex-wrap:wrap;overflow:visible}.cat{width:calc(20% - 8px);height:150px}.card .ph{height:140px}}
+</style>
+</head>
+<body>
+<header><div class="hin">
+  <a class="logo" href="#" onclick="go('feed');return false" aria-label="AGROSSIGNOL, accueil"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#f4a15d"/><path fill="#17422f" d="M23 8.500C12 11 9.700 18.600 7.500 24.700l2 .7 1.200-2.800a5.500 5.500 0 0 0 1.800.3c13 0 16.500-10.500 16.500-20.500-2.300 2.300-4.800 4.800-6 7.100z" transform="translate(-2 2) scale(.92)"/></svg><b>AGROSSIGNOL</b></a>
+  <button id="btn-login" onclick="loginPi()">Connexion Pi</button>
+  <div id="user-info"><div class="ava" id="ua">U</div><span id="un">Utilisateur</span></div>
+</div></header>
+
+<main>
+<section class="view on" id="v-feed">
+  <div class="hero"><img src="images/exploitation.jpg" alt="Producteurs au champ" onerror="this.remove()"/>
+    <div class="hc"><p class="tag">Plateforme agricole numérique panafricaine</p>
+    <h1>Produisez, vendez et payez avec Pi.</h1>
+    <div class="sbar"><input id="hq" placeholder="Chercher un produit ou un vendeur" aria-label="Recherche" onkeydown="if(event.key==='Enter')hs()"/><button onclick="hs()">Chercher</button></div></div>
+  </div>
+  <div class="sec"><h2>Catégories</h2><button onclick="setCat('all');go('market')">Tout voir</button></div>
+  <div class="cats" id="homecats"></div>
+  <a class="diag" href="agrossignol-diagnostic-1-4.html"><div class="ph" data-i="IA"><img src="images/technicien.jpg" alt="Technicien agricole" onerror="this.remove()"/></div><div><b>Diagnostic des plantes par IA</b><small>Photographiez une plante, recevez une analyse.</small><em>Lancer le diagnostic</em></div></a>
+  <h2>Services</h2>
+  <div class="svc">
+    <a href="agrossignol-diagnostic-1-4.html"><b>Diagnostic IA</b><small>Détectez les maladies de vos cultures.</small></a>
+    <button onclick="setCat('all');go('market')"><b>Marché agricole</b><small>Cultures, élevage, intrants, matériel.</small></button>
+    <button onclick="openPublish()"><b>Vendre un produit</b><small>Publiez votre annonce en une minute.</small></button>
+    <button onclick="setCat('all');go('market')"><b>Paiement Pi</b><small>Achetez avec votre wallet Pi Network.</small></button>
+  </div>
+  <div class="stories" id="stories"></div>
+  <div class="composer">
+    <div class="ava" id="ca">A</div>
+    <button class="fake" onclick="openPublish()">Que voulez-vous vendre aujourd'hui ?</button>
+  </div>
+  <h2>Dernières annonces</h2>
+  <div id="feed"></div>
+</section>
+
+<section class="view" id="v-market">
+  <h2>Marché agricole</h2>
+  <input class="search" id="q" placeholder="Chercher un produit ou un vendeur" aria-label="Recherche" oninput="renderMarket()"/>
+  <div class="chips" id="chips"></div>
+  <div class="grid" id="grid"></div>
+</section>
+
+<section class="view" id="v-msg">
+  <h2>Messages</h2>
+  <div class="panel"><div class="empty">La messagerie intégrée n'est pas encore disponible. Pour écrire à un vendeur, touchez « Contacter » sur une annonce : la conversation s'ouvre sur WhatsApp.</div></div>
+</section>
+
+<section class="view" id="v-me">
+  <h2>Mon profil</h2>
+  <div class="panel">
+    <div class="profile-top"><div class="ava" id="pa">?</div><div><b id="pn" style="font-size:1.1rem">Non connecté</b><div id="ps" style="font-size:.82rem;color:#5f5f5f">Connectez-vous avec Pi pour acheter et vendre.</div></div></div>
+    <div class="stats"><div><b id="st-p">0</b>publications</div><div><b id="st-f">0</b>abonnements</div></div>
+    <button class="btn-main" style="margin-top:0" onclick="loginPi()">Connexion Pi</button>
+  </div>
+  <div class="panel"><b>Mes publications</b><div id="mine"></div></div>
+</section>
+</main>
+
+<footer>
+  <b class="w">AGROSSIGNOL</b>
+  <div style="opacity:.85;margin-bottom:8px">Plateforme agricole numérique panafricaine</div>
+  <div>Créée par <strong>Terri Delli Rossy</strong> · Yaoundé, Cameroun</div>
+  <div><a href="tel:+237698560650">+237 698 560 650</a> · <a href="tel:+237679924690">+237 679 924 690</a></div>
+  <div><a href="mailto:Terridellirossy99@gmail.com">Terridellirossy99@gmail.com</a></div>
+  <div style="opacity:.7;font-size:.75rem;margin-top:8px">© 2026 AGROSSIGNOL — Tous droits réservés</div>
+</footer>
+
+<nav class="bottom"><div class="nin">
+  <button class="on" data-v="feed" onclick="go('feed')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>Accueil</button>
+  <button data-v="market" onclick="go('market')"><svg viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h10.2L20 7H6"/><circle cx="9" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/></svg>Marché</button>
+  <button class="pub" onclick="openPublish()" aria-label="Publier"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>Publier</button>
+  <button data-v="msg" onclick="go('msg')"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.500 7.200L4 20l1-4.500A8 8 0 1 1 21 12z"/></svg>Messages</button>
+  <button data-v="me" onclick="go('me')"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>Profil</button>
+</div></nav>
+
+<div class="ov" id="o-buy"><div class="modal">
+  <h3>Confirmer la commande</h3>
+  <div class="mini" style="border:0"><div id="b-em"></div><div class="info"><b id="b-nm"></b><div id="b-sl" style="font-size:.8rem;color:#777"></div></div><div class="pr" id="b-pr" style="font-size:1.3rem"></div></div>
+  <div class="pi-note">π Le paiement passe par votre wallet Pi Network. Connectez-vous avant de payer.</div>
+  <button class="btn-confirm" onclick="pay()">Payer avec Pi</button>
+  <button class="btn-alt" onclick="closeAll()">Annuler</button>
+</div></div>
+
+<div class="ov" id="o-pub"><div class="modal">
+  <h3>Publier un produit</h3>
+  <label for="f-nm">Nom du produit</label><input id="f-nm" maxlength="40" placeholder="Ex : Tomates fraîches"/>
+  <div class="row"><div style="flex:1"><label for="f-pr">Prix (π)</label><input id="f-pr" type="number" min="0" step="0.01" placeholder="0.5"/></div>
+  <div style="flex:1"><label for="f-un">Unité</label><input id="f-un" maxlength="10" placeholder="kg"/></div></div>
+  <label for="f-ct">Catégorie</label><select id="f-ct"></select>
+  <label for="f-tx">Description</label><textarea id="f-tx" rows="3" maxlength="200" placeholder="Quantité, village, date de récolte…"></textarea>
+  <button class="btn-confirm" onclick="publish()">Publier</button>
+  <button class="btn-alt" onclick="closeAll()">Annuler</button>
+</div></div>
+
+<div class="ov" id="o-sel"><div class="modal">
+  <div class="profile-top"><div class="ava" id="s-av"></div>
+  <div style="flex:1"><b id="s-nm" style="font-size:1.1rem"></b><div id="s-info" style="font-size:.8rem;color:#777"></div></div></div>
+  <div style="display:flex;gap:10px;margin:14px 0">
+    <button class="btn-follow" id="s-fol" style="flex:1;padding:10px" onclick="toggleFollow()"></button>
+    <button class="btn-follow" style="flex:1;padding:10px" onclick="wa()">Contacter</button>
+  </div>
+  <b>Produits en vente</b><div id="s-list"></div>
+  <button class="btn-alt" onclick="closeAll()">Fermer</button>
+</div></div>
+
+<div id="toast" role="status"></div>
+
+<script>
+let PI_OK=false;try{Pi.init({version:"2.0",sandbox:true});PI_OK=true}catch(e){console.warn("Pi SDK indisponible",e)}
+const BACKEND='https://agrossignol-backend.vercel.app';
+let user=null, cur=null, curSeller=null, cat='all';
+const CATS={légumes:'🥬',fruits:'🍊',céréales:'🌽',élevage:'🐔',vétérinaire:'💊',ingrédients:'🌾',concentrés:'💪',intrants:'🧪',matériel:'🔧',épices:'🌶️'};
+const CATIMG={légumes:'legumes',fruits:'fruits',céréales:'cereales',élevage:'elevage',vétérinaire:'veterinaire',ingrédients:'ingredients',concentrés:'concentres',intrants:'intrants',matériel:'materiel',épices:'epices'};
+const IMG={'tomate':'tomates','maïs':'mais','pomme de terre':'pommes-de-terre','poulet':'poulets','poussin':'poulets','engrais':'engrais'};
+
+const base=[
+{id:1,name:"Tomates fraîches",seller:"Ferme Beti",price:0.1,emoji:"🍅",cat:"légumes",unit:"kg",text:"Récolte du matin, tomates bien mûres. Livraison possible à Yaoundé."},
+{id:2,name:"Ignames",seller:"Ferme de l'Est",price:1.2,emoji:"🥔",cat:"légumes",unit:"kg"},
+{id:3,name:"Bananes plantain",seller:"Plantation Sud",price:0.6,emoji:"🍌",cat:"fruits",unit:"kg",text:"Régimes frais disponibles toute la semaine."},
+{id:4,name:"Oranges douces",seller:"Verger Mbam",price:0.4,emoji:"🍊",cat:"fruits",unit:"kg"},
+{id:5,name:"Maïs jaune",seller:"Coopérative Nord",price:0.8,emoji:"🌽",cat:"céréales",unit:"kg",text:"Stock disponible, prix de gros pour les achats groupés."},
+{id:6,name:"Sorgho",seller:"Paysan Extrême-Nord",price:0.7,emoji:"🌾",cat:"céréales",unit:"kg"},
+{id:7,name:"Piment rouge",seller:"Marché Mokolo",price:0.3,emoji:"🌶️",cat:"épices",unit:"kg"},
+{id:8,name:"Poussins 1 jour (chair)",seller:"Ferme Avicole",price:1.3,emoji:"🐣",cat:"élevage",unit:"unité",text:"Nouvelle éclosion cette semaine. Réservez vos poussins !"},
+{id:9,name:"Poussins 1 jour (pondeuse)",seller:"Ferme Avicole",price:1.6,emoji:"🐣",cat:"élevage",unit:"unité"},
+{id:10,name:"Poulet Goliath vivant",seller:"Élevage Adamaoua",price:10,emoji:"🐓",cat:"élevage",unit:"kg vif"},
+{id:11,name:"Poulet de chair vivant",seller:"Élevage Adamaoua",price:6,emoji:"🐔",cat:"élevage",unit:"kg vif"},
+{id:12,name:"Canards",seller:"Ferme Sud",price:3.5,emoji:"🦆",cat:"élevage",unit:"unité"},
+{id:13,name:"Lapins",seller:"Clapier Ouest",price:0.01,emoji:"🐇",cat:"élevage",unit:"unité"},
+{id:14,name:"Porcelets",seller:"Élevage Porcin",price:8,emoji:"🐷",cat:"élevage",unit:"unité"},
+{id:15,name:"Cabris (chèvres)",seller:"Élevage Pastoral",price:15,emoji:"🐐",cat:"élevage",unit:"unité"},
+{id:16,name:"Vaccin Newcastle",seller:"Pharmacie Vétérinaire",price:0.01,emoji:"💉",cat:"vétérinaire",unit:"dose"},
+{id:17,name:"Vaccin Gumboro",seller:"Pharmacie Vétérinaire",price:1.5,emoji:"💉",cat:"vétérinaire",unit:"dose"},
+{id:18,name:"Vitamines volailles",seller:"Pharmacie Vétérinaire",price:2,emoji:"💊",cat:"vétérinaire",unit:"boîte"},
+{id:19,name:"Antibiotiques Tétracycline",seller:"Pharmacie Vétérinaire",price:2.5,emoji:"💊",cat:"vétérinaire",unit:"boîte"},
+{id:20,name:"Déparasitant bétail",seller:"Pharmacie Vétérinaire",price:3,emoji:"🧴",cat:"vétérinaire",unit:"flacon"},
+{id:21,name:"Aliment starter poussins",seller:"Agro-Aliments",price:4,emoji:"🥣",cat:"vétérinaire",unit:"sac"},
+{id:22,name:"Aliment finition poulets",seller:"Agro-Aliments",price:0.01,emoji:"🥣",cat:"vétérinaire",unit:"sac"},
+{id:23,name:"Son de blé",seller:"Moulin du Centre",price:1,emoji:"🌾",cat:"ingrédients",unit:"kg"},
+{id:24,name:"Tourteau de soja",seller:"Agro-Aliments",price:0.7,emoji:"🫘",cat:"ingrédients",unit:"kg"},
+{id:25,name:"Farine de poisson",seller:"Pêcherie Kribi",price:1,emoji:"🐟",cat:"ingrédients",unit:"kg"},
+{id:26,name:"Maïs concassé",seller:"Moulin du Centre",price:0.8,emoji:"🌽",cat:"ingrédients",unit:"kg"},
+{id:27,name:"Coquilles d'huîtres",seller:"Pêcherie Kribi",price:0.01,emoji:"🦪",cat:"ingrédients",unit:"kg"},
+{id:28,name:"Sel minéral",seller:"Agro-Aliments",price:0.5,emoji:"🧂",cat:"ingrédients",unit:"kg"},
+{id:29,name:"Concentré ponte 5%",seller:"Agro-Aliments",price:3,emoji:"🧪",cat:"concentrés",unit:"sac"},
+{id:30,name:"Concentré ponte 38%",seller:"Agro-Aliments",price:5,emoji:"🧪",cat:"concentrés",unit:"sac"},
+{id:31,name:"Concentré chair démarrage",seller:"Agro-Aliments",price:4,emoji:"🧪",cat:"concentrés",unit:"sac"},
+{id:32,name:"Concentré chair croissance",seller:"Agro-Aliments",price:4,emoji:"🧪",cat:"concentrés",unit:"sac"},
+{id:33,name:"Concentré chair finition",seller:"Agro-Aliments",price:4,emoji:"🧪",cat:"concentrés",unit:"sac"},
+{id:34,name:"Concentré porc croissance",seller:"Agro-Aliments",price:4.5,emoji:"🧪",cat:"concentrés",unit:"sac"},
+{id:35,name:"Concentré bovin laitier",seller:"Agro-Aliments",price:5,emoji:"🧪",cat:"concentrés",unit:"sac"},
+{id:36,name:"Prémix ponte",seller:"Agro-Aliments",price:4,emoji:"⚗️",cat:"concentrés",unit:"kg"},
+{id:37,name:"Prémix chair",seller:"Agro-Aliments",price:4,emoji:"⚗️",cat:"concentrés",unit:"kg"},
+{id:38,name:"Lysine",seller:"Agro-Aliments",price:4,emoji:"⚗️",cat:"concentrés",unit:"kg"},
+{id:39,name:"Méthionine",seller:"Agro-Aliments",price:4,emoji:"⚗️",cat:"concentrés",unit:"kg"},
+{id:40,name:"Semences maïs amélioré",seller:"MINADER",price:2,emoji:"🌱",cat:"intrants",unit:"kg"},
+{id:41,name:"Semences tomates hybrides",seller:"MINADER",price:3,emoji:"🌱",cat:"intrants",unit:"sachet"},
+{id:42,name:"Engrais NPK",seller:"Agro-Chimie",price:4,emoji:"🧴",cat:"intrants",unit:"sac",text:"Engrais NPK en stock. Conseils d'utilisation fournis avec chaque sac."},
+{id:43,name:"Engrais urée",seller:"Agro-Chimie",price:3.5,emoji:"🧴",cat:"intrants",unit:"sac"},
+{id:44,name:"Herbicide Round-up",seller:"Agro-Chimie",price:3,emoji:"🧪",cat:"intrants",unit:"litre"},
+{id:45,name:"Pesticide",seller:"Agro-Chimie",price:2.5,emoji:"🧪",cat:"intrants",unit:"litre"},
+{id:46,name:"Fongicide",seller:"Agro-Chimie",price:2.5,emoji:"🧪",cat:"intrants",unit:"litre"},
+{id:47,name:"Sacs de jute",seller:"Agro-Marché",price:0.5,emoji:"🛍️",cat:"intrants",unit:"unité"},
+{id:48,name:"Mangeoires volailles",seller:"Agro-Équipement",price:2,emoji:"🪣",cat:"matériel",unit:"unité"},
+{id:49,name:"Abreuvoirs",seller:"Agro-Équipement",price:2,emoji:"🪣",cat:"matériel",unit:"unité"},
+{id:50,name:"Filet de poulailler",seller:"Agro-Équipement",price:5,emoji:"🕸️",cat:"matériel",unit:"rouleau"},
+{id:51,name:"Brouette",seller:"Agro-Équipement",price:8,emoji:"🛒",cat:"matériel",unit:"unité"},
+{id:52,name:"Houe",seller:"Agro-Équipement",price:3,emoji:"⛏️",cat:"matériel",unit:"unité"},
+{id:53,name:"Pulvérisateur",seller:"Agro-Équipement",price:10,emoji:"💦",cat:"matériel",unit:"unité"}
+];
+
+// État local (enregistré dans ce téléphone uniquement)
+function load(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+let mine=load('agro_mine',[]), likes=load('agro_likes',{}), follows=load('agro_follows',[]);
+const all=()=>mine.concat(base);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sellerOf=n=>all().filter(p=>p.seller===n);
+const rate=n=>(4+((n.length*7)%10)/10).toFixed(1);
+
+// Photos : image précise -> image de catégorie -> fond vert de secours
+function imgErr(i){const b=i.dataset.b;if(b&&!i.src.endsWith('/'+b+'.jpg')){i.src='images/'+b+'.jpg'}else i.remove()}
+const TINT=['#2f7a57','#8a5a2b','#c4561a','#3d6b4f','#6b4226','#b5541a','#2a5d45','#7a4b24','#9c3d1c','#4a7c59'];
+function phHTML(file,b,alt,i,k){return `<div class="ph" style="--a:${TINT[Math.max(0,k)%TINT.length]}" data-i="${esc(i)}"><img loading="lazy" alt="${esc(alt)}" src="images/${file}.jpg" data-b="${b}" onerror="imgErr(this)"></div>`}
+function ph(p){
+  const nm=p.name.toLowerCase(), k=Object.keys(IMG).find(x=>nm.includes(x)), b=CATIMG[p.cat]||'defaut';
+  return phHTML(k?IMG[k]:b,b,p.name,p.name[0].toUpperCase(),Object.keys(CATS).indexOf(p.cat));
+}
+function hs(){document.getElementById('q').value=document.getElementById('hq').value;go('market');renderMarket()}
+
+function go(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));
+  document.querySelectorAll('nav.bottom button[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  window.scrollTo(0,0);
+  if(v==='me')renderMe();
+}
+
+function renderStories(){
+  const names=[...new Set(all().map(p=>p.seller))].slice(0,8);
+  document.getElementById('stories').innerHTML=
+   '<button class="story add" onclick="openPublish()"><div class="ava">+</div>Publier</button>'+
+   names.map(n=>`<button class="story" data-s="${esc(n)}" onclick="openSeller(this.dataset.s)"><div class="ava">${esc(n[0])}</div>${esc(n.length>10?n.slice(0,9)+'…':n)}</button>`).join('');
+}
+function renderHomeCats(){
+  document.getElementById('homecats').innerHTML=Object.keys(CATS).map((k,i)=>`<button class="cat" onclick="setCat('${k}');go('market')">${phHTML(CATIMG[k],CATIMG[k],k,k[0].toUpperCase(),i)}<span>${esc(k)}</span></button>`).join('');
+}
+
+function renderFeed(){
+  const posts=all().filter(p=>p.text||p.mine).slice(0,30);
+  document.getElementById('feed').innerHTML=posts.length?posts.map(p=>{
+    const l=likes[p.id]?1:0, f=follows.includes(p.seller);
+    return `<article class="post">
+    <div class="post-head"><div class="ava">${esc(p.seller[0])}</div>
+      <div class="who"><b onclick="openSeller(this.dataset.s)" data-s="${esc(p.seller)}">${esc(p.seller)}</b><small>${p.mine?'Votre annonce · ':''}${esc(p.cat)}</small></div>
+      ${p.mine?'':`<button class="btn-follow ${f?'on':''}" onclick="follow(this.dataset.s)" data-s="${esc(p.seller)}">${f?'Suivi':'Suivre'}</button>`}</div>
+    <div class="post-text">${esc(p.text||'Nouveau produit disponible !')}</div>
+    <div class="post-prod">${ph(p)}<div class="info"><div class="nm">${esc(p.name)}</div><div class="pr">${p.price}π <span>/${esc(p.unit)}</span></div></div>
+      <button class="btn-buy" onclick="openBuy(${p.id})">Commander</button></div>
+    <div class="actions">
+      <button class="${l?'liked':''}" onclick="like(${p.id})">${l?'Aimé':'J\'aime'}</button>
+      <button onclick="wa('${p.id}')">Contacter</button>
+      <button onclick="share(${p.id})">Partager</button></div></article>`}).join('')
+  :'<div class="empty">Aucune publication pour le moment. Publiez votre premier produit.</div>';
+}
+
+function renderChips(){
+  const c=['all',...Object.keys(CATS)];
+  document.getElementById('chips').innerHTML=c.map(k=>`<button class="chip ${k===cat?'on':''}" onclick="setCat('${k}')">${k==='all'?'Tout':k}</button>`).join('');
+}
+function setCat(k){cat=k;renderChips();renderMarket()}
+function renderMarket(){
+  const q=document.getElementById('q').value.toLowerCase();
+  let l=all();
+  if(cat!=='all')l=l.filter(p=>p.cat===cat);
+  if(q)l=l.filter(p=>p.name.toLowerCase().includes(q)||p.seller.toLowerCase().includes(q));
+  document.getElementById('grid').innerHTML=l.length?l.map(p=>`<div class="card">${ph(p)}<div class="bd">
+   <div class="n">${esc(p.name)}</div>
+   <button class="s" onclick="openSeller(this.dataset.s)" data-s="${esc(p.seller)}">${esc(p.seller)}</button>
+   <div class="ft"><div class="pr">${p.price}π <span>/${esc(p.unit)}</span></div><button class="btn-buy" onclick="openBuy(${p.id})">Acheter</button></div></div></div>`).join('')
+  :'<div class="empty">Aucun produit trouvé. Essayez un autre mot ou une autre catégorie.</div>';
+}
+
+function renderMe(){
+  document.getElementById('st-p').textContent=mine.length;
+  document.getElementById('st-f').textContent=follows.length;
+  document.getElementById('mine').innerHTML=mine.length?mine.map(p=>`<div class="mini">${ph(p)}<div class="info"><b>${esc(p.name)}</b><div class="pr">${p.price}π <span>/${esc(p.unit)}</span></div></div></div>`).join('')
+   :'<div class="empty" style="padding:20px">Vous n\'avez rien publié. Touchez + pour vendre votre premier produit.</div>';
+}
+
+function like(id){likes[id]=!likes[id];save('agro_likes',likes);renderFeed()}
+function follow(n){follows=follows.includes(n)?follows.filter(x=>x!==n):follows.concat(n);save('agro_follows',follows);renderFeed();if(curSeller===n)openSeller(n,true)}
+function toggleFollow(){follow(curSeller)}
+function share(id){
+  const p=all().find(x=>x.id===id), t=`${p.name} — ${p.price}π/${p.unit} sur AGROSSIGNOL : https://gozomor237.github.io`;
+  if(navigator.share){navigator.share({title:'AGROSSIGNOL',text:t}).catch(()=>{})}
+  else window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank');
+}
+function wa(id){
+  const p=id?all().find(x=>x.id==id):null;
+  const t=p?`Bonjour, je suis intéressé par « ${p.name} » sur AGROSSIGNOL.`:`Bonjour, je vous contacte depuis AGROSSIGNOL.`;
+  window.open('https://wa.me/237698560650?text='+encodeURIComponent(t),'_blank');
+}
+
+function openSeller(n,keep){
+  curSeller=n; const l=sellerOf(n), f=follows.includes(n);
+  document.getElementById('s-av').textContent=n[0];
+  document.getElementById('s-nm').textContent=n;
+  document.getElementById('s-info').textContent=`${l.length} produit${l.length>1?'s':''} en vente`;
+  const b=document.getElementById('s-fol'); b.textContent=f?'Suivi':'Suivre'; b.classList.toggle('on',f);
+  document.getElementById('s-list').innerHTML=l.map(p=>`<div class="mini">${ph(p)}<div class="info"><b>${esc(p.name)}</b><div class="pr">${p.price}π <span>/${esc(p.unit)}</span></div></div><button class="btn-buy" onclick="openBuy(${p.id})">Acheter</button></div>`).join('');
+  document.getElementById('o-sel').classList.add('open');
+}
+function openBuy(id){
+  closeAll(); cur=all().find(p=>p.id===id);
+  b_em.innerHTML=ph(cur); b_nm.textContent=cur.name; b_sl.textContent=cur.seller; b_pr.textContent=cur.price+'π';
+  o_buy.classList.add('open');
+}
+const b_em=document.getElementById('b-em'),b_nm=document.getElementById('b-nm'),b_sl=document.getElementById('b-sl'),b_pr=document.getElementById('b-pr'),o_buy=document.getElementById('o-buy');
+function openPublish(){
+  closeAll();
+  document.getElementById('f-ct').innerHTML=Object.keys(CATS).map(k=>`<option value="${k}">${k}</option>`).join('');
+  document.getElementById('o-pub').classList.add('open');
+}
+function publish(){
+  const nm=f_nm.value.trim(), pr=parseFloat(f_pr.value), un=f_un.value.trim()||'unité', ct=f_ct.value, tx=f_tx.value.trim();
+  if(!nm||!(pr>=0)||isNaN(pr)){toast('Indiquez le nom et le prix du produit');return}
+  const seller=user?user.username:'Moi';
+  mine.unshift({id:Date.now(),name:nm,seller,price:pr,emoji:CATS[ct],cat:ct,unit:un,text:tx,mine:true});
+  save('agro_mine',mine);
+  f_nm.value=f_pr.value=f_un.value=f_tx.value='';
+  closeAll(); renderAll(); go('feed'); toast('Produit publié');
+}
+const f_nm=document.getElementById('f-nm'),f_pr=document.getElementById('f-pr'),f_un=document.getElementById('f-un'),f_ct=document.getElementById('f-ct'),f_tx=document.getElementById('f-tx');
+function closeAll(){document.querySelectorAll('.ov').forEach(o=>o.classList.remove('open'))}
+document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeAll()}));
+
+function loginPi(){
+  if(!PI_OK){toast('Ouvrez AGROSSIGNOL dans Pi Browser pour vous connecter');return}
+  Pi.authenticate(['username','payments'],onIncompletePaymentFound).then(a=>{
+    user=a.user;
+    document.getElementById('btn-login').style.display='none';
+    document.getElementById('user-info').style.display='flex';
+    ua.textContent=ca.textContent=pa.textContent=a.user.username[0].toUpperCase();
+    un.textContent=pn.textContent=a.user.username;
+    ps.textContent='Connecté avec Pi';
+    toast('Connecté : '+a.user.username);
+  }).catch(()=>toast('Connexion annulée'));
+}
+const ua=document.getElementById('ua'),ca=document.getElementById('ca'),pa=document.getElementById('pa'),un=document.getElementById('un'),pn=document.getElementById('pn'),ps=document.getElementById('ps');
+
+function pay(){
+  if(!PI_OK){toast('Ouvrez AGROSSIGNOL dans Pi Browser pour payer');closeAll();return}
+  if(!user){toast('Connectez-vous d\'abord avec Pi');closeAll();return}
+  Pi.createPayment({amount:cur.price,memo:'Achat : '+cur.name+' sur Agrossignol',metadata:{productId:cur.id,seller:cur.seller}},{
+    onReadyForServerApproval:async id=>{await fetch(BACKEND+'/payment/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paymentId:id})})},
+    onReadyForServerCompletion:async(id,txid)=>{await fetch(BACKEND+'/payment/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paymentId:id,txid})});closeAll();toast('Commande réussie, merci !')},
+    onCancel:()=>{closeAll();toast('Paiement annulé')},
+    onError:e=>{closeAll();toast('Erreur : '+e.message)}
+  });
+}
+function onIncompletePaymentFound(p){console.log('Paiement incomplet :',p)}
+
+let tt;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),3000)}
+function renderAll(){renderStories();renderHomeCats();renderFeed();renderChips();renderMarket();renderMe()}
+renderAll();
+</script>
+</body>
+</html>
