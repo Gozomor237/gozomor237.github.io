@@ -464,4 +464,11 @@ function renderAll(){renderStories();renderHomeCats();renderFeed();renderChips()
 renderAll();
 </script>
 </body>
+  <script>
+(function(){
+  var h=[].slice.call(document.querySelectorAll('#v-feed h2')).filter(function(x){return x.textContent.indexOf('Dernières annonces')>-1})[0];
+  if(h){var d=document.createElement('div');d.id='social-feed';h.parentNode.insertBefore(d,h);}
+})();
+</script>
+<script src="agrossignol-social.js"></script>
  </html>
