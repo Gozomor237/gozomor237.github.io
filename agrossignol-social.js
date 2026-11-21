@@ -1,141 +1,357 @@
-/* AGROSSIGNOL : photos, commentaires et WhatsApp du vendeur (Supabase).
-   Ne touche ni au Pi SDK, ni à la connexion Pi, ni aux paiements. */
-(function(){
-const SB='https://ymndoorshmmigbrzisav.supabase.co';
-const KEY='sb_publishable_OlIbCWjQlDwI1FIsrVq4Pw_yPLeSd5H';
-const H={apikey:KEY}, JH={apikey:KEY,'Content-Type':'application/json'};
-const OFF=1000000, DEFWA='237698560650';
-let picked=[], OPEN={}, COM={}, busy=false;
+/* AGROSSIGNOL - Publications, photos et commentaires (Supabase)
+   Fichier autonome : ne touche ni au Pi SDK, ni aux paiements, ni au diagnostic IA. */
+(function () {
+  'use strict';
 
-const css=document.createElement('style');
-css.textContent=`
-.pics{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 12px 10px;scrollbar-width:none}
-.pics::-webkit-scrollbar{display:none}
-.pics img{flex:0 0 86%;max-height:320px;object-fit:cover;border-radius:12px;scroll-snap-align:start;background:var(--gris)}
-.pics.one img{flex-basis:100%}
-.cmts{padding:4px 12px 12px;border-top:1px solid var(--gris)}
-.cm{padding:8px 0;font-size:.88rem;line-height:1.45;border-bottom:1px solid var(--gris)}
-.cm small{color:#6a6a6a;margin-left:6px}
-.cm0{padding:10px 0;font-size:.84rem;color:#5f5f5f}
-.cmrow{display:flex;gap:8px;margin-top:10px}
-.cmrow input{flex:1;min-width:0;border:2px solid var(--gris);border-radius:50px;padding:10px 14px;font:inherit;font-size:.95rem}
-.cmrow button{background:var(--vert);color:#fff;border:0;border-radius:50px;padding:0 16px;min-height:42px;font-weight:700;font-size:.85rem}
-.modal label.addph{display:block;text-align:center;border:2px dashed var(--vert2);color:var(--vert);border-radius:12px;padding:14px;font-weight:700;cursor:pointer;margin-top:4px}
-#f-thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-#f-thumbs .th{position:relative;width:72px;height:72px}
-#f-thumbs img{width:100%;height:100%;object-fit:cover;border-radius:10px}
-#f-thumbs button{position:absolute;top:-6px;right:-6px;width:26px;height:26px;border-radius:50%;border:0;background:var(--or);color:#fff;font-size:1rem;line-height:1}
-`;
-document.head.appendChild(css);
+  var SB_URL = 'https://ymndoorshmmigbrzisav.supabase.co';
+  var SB_KEY = 'sb_publishable_OlIbCWjQlDwI1FIsrVq4Pw_yPLeSd5H';
+  var BUCKET = 'photos';
+  var MAX_PH = 4;
+  var picked = [];
 
-function ago(s){const m=Math.round((Date.now()-new Date(s))/6e4);if(m<1)return "à l'instant";if(m<60)return 'il y a '+m+' min';const h=Math.round(m/60);if(h<24)return 'il y a '+h+' h';return 'il y a '+Math.round(h/24)+' j'}
-function waNum(s){let d=String(s||'').replace(/\D/g,'');if(d.length===9&&d[0]==='6')d='237'+d;return d.length>=11&&d.length<=15?d:''}
-async function rest(path){const r=await fetch(SB+'/rest/v1/'+path,{headers:H});if(!r.ok)throw new Error(await r.text());return r.json()}
-async function post(table,row){const r=await fetch(SB+'/rest/v1/'+table,{method:'POST',headers:Object.assign({Prefer:'return=minimal'},JH),body:JSON.stringify(row)});if(!r.ok)throw new Error(await r.text())}
+  function $(s, r) { return (r || document).querySelector(s); }
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function waNum(n) {
+    var d = String(n || '').replace(/\D/g, '');
+    if (d.length === 9 && d.charAt(0) === '6') d = '237' + d;
+    return d;
+  }
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k) || ''; localStorage.setItem(k, v); } catch (e) { return ''; } }
 
-async function shrink(file){
-  const url=URL.createObjectURL(file);
-  const img=await new Promise((ok,ko)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=ko;i.src=url});
-  const s=Math.min(1,1280/Math.max(img.width,img.height));
-  const c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
-  c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);
-  return new Promise((ok,ko)=>c.toBlob(b=>b?ok(b):ko(new Error('photo')),'image/jpeg',0.8));
-}
-async function upload(file){
-  const blob=await shrink(file), name=Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.jpg';
-  const r=await fetch(SB+'/storage/v1/object/photos/'+name,{method:'POST',headers:{apikey:KEY,'Content-Type':'image/jpeg'},body:blob});
-  if(!r.ok)throw new Error(await r.text());
-  return SB+'/storage/v1/object/public/photos/'+name;
-}
+  /* ---------- Appels Supabase ---------- */
+  function api(path, opt) {
+    opt = opt || {};
+    var h = { apikey: SB_KEY };
+    for (var k in (opt.headers || {})) h[k] = opt.headers[k];
+    opt.headers = h;
+    return fetch(SB_URL + path, opt).then(function (r) {
+      if (r.ok) return r.status === 204 ? null : r.json().catch(function () { return null; });
+      return r.text().then(function (t) {
+        var m = t;
+        try { m = JSON.parse(t).message || t; } catch (e) {}
+        throw new Error(m || ('Erreur ' + r.status));
+      });
+    });
+  }
 
-async function loadRemote(){
-  try{
-    const [a,c]=await Promise.all([rest('annonces?select=*&order=created_at.desc&limit=60'),rest('commentaires?select=*&order=created_at.asc&limit=1000')]);
-    COM={};c.forEach(x=>(COM[x.annonce_id]=COM[x.annonce_id]||[]).push(x));
-    for(let i=base.length-1;i>=0;i--)if(base[i].remote)base.splice(i,1);
-    base.unshift(...a.map(r=>({id:OFF+r.id,rid:r.id,name:r.nom,seller:r.vendeur,price:r.prix,emoji:'',cat:r.categorie||'légumes',unit:r.unite||'unité',text:r.description||'',photos:r.photos||[],wa:r.whatsapp||'',remote:true})));
-    renderAll();
-  }catch(e){console.warn('Annonces en ligne indisponibles',e)}
-}
+  function compress(file) {
+    return new Promise(function (res, rej) {
+      var img = new Image();
+      var u = URL.createObjectURL(file);
+      img.onload = function () {
+        var s = Math.min(1, 1200 / Math.max(img.width, img.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.width * s);
+        c.height = Math.round(img.height * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(u);
+        c.toBlob(function (b) { b ? res(b) : rej(new Error('Photo illisible')); }, 'image/jpeg', 0.8);
+      };
+      img.onerror = function () { rej(new Error('Photo illisible')); };
+      img.src = u;
+    });
+  }
 
-const _ph=window.ph;
-window.ph=function(p){
-  if(p.photos&&p.photos.length)return `<div class="ph" data-i="${esc(p.name[0].toUpperCase())}"><img loading="lazy" alt="${esc(p.name)}" src="${esc(p.photos[0])}" onerror="this.remove()"></div>`;
-  return _ph(p);
-};
+  function upload(blob) {
+    var name = 'p/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.jpg';
+    return api('/storage/v1/object/' + BUCKET + '/' + name, {
+      method: 'POST',
+      headers: { 'Content-Type': 'image/jpeg' },
+      body: blob
+    }).then(function () {
+      return SB_URL + '/storage/v1/object/public/' + BUCKET + '/' + name;
+    });
+  }
 
-function card(p){
-  const l=likes[p.id]?1:0,f=follows.includes(p.seller),own=user&&user.username===p.seller;
-  const has=p.photos&&p.photos.length, n=(COM[p.rid]||[]).length;
-  const pics=has?`<div class="pics${p.photos.length===1?' one':''}">${p.photos.map(u=>`<img loading="lazy" alt="${esc(p.name)}" src="${esc(u)}" onerror="this.remove()">`).join('')}</div>`:'';
-  const list=(COM[p.rid]||[]).map(c=>`<div class="cm"><b>${esc(c.auteur)}</b><small>${ago(c.created_at)}</small><div>${esc(c.texte)}</div></div>`).join('');
-  const cmts=OPEN[p.id]?`<div class="cmts">${list||'<div class="cm0">Aucun commentaire. Posez vos questions au vendeur avant de le contacter.</div>'}<div class="cmrow"><input id="ci-${p.id}" maxlength="300" placeholder="Écrire un commentaire" onkeydown="if(event.key==='Enter')sendC(${p.id})"><button onclick="sendC(${p.id})">Envoyer</button></div></div>`:'';
-  return `<article class="post">
-  <div class="post-head"><div class="ava">${esc(p.seller[0])}</div>
-    <div class="who"><b onclick="openSeller(this.dataset.s)" data-s="${esc(p.seller)}">${esc(p.seller)}</b><small>${own?'Votre annonce · ':''}${esc(p.cat)}</small></div>
-    ${own?'':`<button class="btn-follow ${f?'on':''}" onclick="follow(this.dataset.s)" data-s="${esc(p.seller)}">${f?'Suivi':'Suivre'}</button>`}</div>
-  <div class="post-text">${esc(p.text||'Nouveau produit disponible !')}</div>
-  ${pics}
-  <div class="post-prod">${has?'':ph(p)}<div class="info"><div class="nm">${esc(p.name)}</div><div class="pr">${p.price}π <span>/${esc(p.unit)}</span></div></div>
-    <button class="btn-buy" onclick="openBuy(${p.id})">Commander</button></div>
-  <div class="actions">
-    <button class="${l?'liked':''}" onclick="like(${p.id})">${l?'Aimé':"J'aime"}</button>
-    ${p.remote?`<button onclick="togC(${p.id})">Commenter${n?' ('+n+')':''}</button>`:''}
-    <button onclick="wa('${p.id}')">Contacter</button>
-    <button onclick="share(${p.id})">Partager</button></div>
-  ${cmts}</article>`;
-}
-window.renderFeed=function(){
-  const posts=all().filter(p=>p.remote||p.text).slice(0,40);
-  document.getElementById('feed').innerHTML=posts.length?posts.map(card).join(''):'<div class="empty">Aucune publication pour le moment. Publiez votre premier produit.</div>';
-};
-window.togC=function(id){OPEN[id]=!OPEN[id];renderFeed();if(OPEN[id])setTimeout(()=>{const i=document.getElementById('ci-'+id);i&&i.focus()},60)};
-window.sendC=async function(id){
-  const inp=document.getElementById('ci-'+id),t=inp?inp.value.trim():'',p=all().find(x=>x.id===id);
-  if(!t||!p)return;
-  if(!user){toast("Connectez-vous d'abord avec Pi");return}
-  try{await post('commentaires',{annonce_id:p.rid,auteur:user.username,texte:t.slice(0,300)})}catch(e){console.warn(e);toast('Commentaire non envoyé. Réessayez.');return}
-  await loadRemote();setTimeout(()=>{const i=document.getElementById('ci-'+id);i&&i.focus()},60);
-};
+  /* ---------- Styles ---------- */
+  function addStyles() {
+    if ($('#ags-style')) return;
+    var s = document.createElement('style');
+    s.id = 'ags-style';
+    s.textContent =
+      '#ags-fab{position:fixed;right:16px;bottom:84px;z-index:9990;background:#e8803a;color:#fff;border:0;border-radius:28px;padding:13px 20px;font:700 15px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.3)}' +
+      '#ags-feed{max-width:640px;margin:0 auto;padding:12px 12px 110px;font-family:system-ui,sans-serif;color:#1d2b21}' +
+      '#ags-feed h2{color:#1f5130;font-size:20px;margin:6px 4px 12px}' +
+      '.ags-card{background:#fff;border:1px solid #e6dfcc;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}' +
+      '.ags-ph{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;background:#f3edda}' +
+      '.ags-ph img{flex:0 0 100%;width:100%;max-height:300px;object-fit:cover;scroll-snap-align:start}' +
+      '.ags-b{padding:12px 14px}' +
+      '.ags-t{font-weight:700;font-size:17px;color:#1f5130;margin:0 0 4px}' +
+      '.ags-pr{color:#e8803a;font-weight:700;font-size:16px}' +
+      '.ags-m{font-size:13px;color:#6b6b5e;margin:2px 0 8px}' +
+      '.ags-d{font-size:14px;line-height:1.45;margin:0 0 10px;white-space:pre-wrap}' +
+      '.ags-row{display:flex;gap:8px}' +
+      '.ags-btn{flex:1;border:0;border-radius:10px;padding:11px;font:700 14px system-ui,sans-serif;text-align:center;text-decoration:none;display:block}' +
+      '.ags-wa{background:#1f9d55;color:#fff}' +
+      '.ags-cm{background:#f3edda;color:#1f5130}' +
+      '.ags-cbox{display:none;border-top:1px solid #eee;padding:10px 14px;background:#faf5e9}' +
+      '.ags-cbox.on{display:block}' +
+      '.ags-c{font-size:14px;margin:0 0 8px}' +
+      '.ags-c b{color:#1f5130}' +
+      '.ags-in{width:100%;box-sizing:border-box;border:1px solid #d8d0b8;border-radius:10px;padding:10px;font:15px system-ui,sans-serif;margin-bottom:8px;background:#fff}' +
+      '#ags-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9995;display:none;align-items:flex-end;justify-content:center}' +
+      '#ags-ov.on{display:flex}' +
+      '#ags-box{background:#faf5e9;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:16px;box-sizing:border-box;font-family:system-ui,sans-serif}' +
+      '#ags-box h3{margin:0 0 12px;color:#1f5130}' +
+      '#ags-box label{display:block;font-size:13px;font-weight:700;color:#1f5130;margin:0 0 4px}' +
+      '#ags-th{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}' +
+      '#ags-th div{position:relative;width:72px;height:72px}' +
+      '#ags-th img{width:72px;height:72px;object-fit:cover;border-radius:8px}' +
+      '#ags-th button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:#c0392b;color:#fff;font-size:13px;line-height:22px;padding:0}' +
+      '#ags-msg{font-size:14px;margin:6px 0;min-height:18px}' +
+      '#ags-msg.err{color:#c0392b}#ags-msg.ok{color:#1f9d55}' +
+      '.ags-go{background:#1f5130;color:#fff;border:0;border-radius:12px;padding:14px;width:100%;font:700 16px system-ui,sans-serif}' +
+      '.ags-x{background:none;border:0;color:#6b6b5e;width:100%;padding:12px;font:15px system-ui,sans-serif}';
+    document.head.appendChild(s);
+  }
 
-window.wa=function(id){
-  const p=id?all().find(x=>x.id==id):null;
-  const s=p?p.seller:curSeller, any=s&&all().find(x=>x.seller===s&&x.wa);
-  const num=(p&&p.wa)||(any&&any.wa)||DEFWA;
-  const t=p?`Bonjour, je suis intéressé par « ${p.name} » sur AGROSSIGNOL.`:'Bonjour, je vous contacte depuis AGROSSIGNOL.';
-  window.open('https://wa.me/'+num+'?text='+encodeURIComponent(t),'_blank');
-};
+  /* ---------- Fenêtre de publication ---------- */
+  function buildModal() {
+    if ($('#ags-ov')) return;
+    var o = document.createElement('div');
+    o.id = 'ags-ov';
+    o.innerHTML =
+      '<div id="ags-box">' +
+      '<h3>Publier une annonce</h3>' +
+      '<label>Titre du produit *</label><input class="ags-in" id="ags-ti" maxlength="80" placeholder="Ex : Maïs frais, sac de 50 kg">' +
+      '<label>Description</label><textarea class="ags-in" id="ags-de" rows="3" maxlength="600" placeholder="Qualité, quantité, disponibilité..."></textarea>' +
+      '<label>Prix (FCFA)</label><input class="ags-in" id="ags-pr" type="number" inputmode="numeric" placeholder="Ex : 15000">' +
+      '<label>Localité</label><input class="ags-in" id="ags-lo" maxlength="60" placeholder="Ex : Maroua">' +
+      '<label>Votre nom *</label><input class="ags-in" id="ags-ve" maxlength="60">' +
+      '<label>Numéro WhatsApp *</label><input class="ags-in" id="ags-wa" type="tel" inputmode="tel" placeholder="Ex : 6XXXXXXXX">' +
+      '<label>Photos (jusqu\'à ' + MAX_PH + ')</label>' +
+      '<div id="ags-th"></div>' +
+      '<input id="ags-f" type="file" accept="image/*" multiple style="display:none">' +
+      '<button type="button" class="ags-btn ags-cm" id="ags-addph" style="margin-bottom:12px">Ajouter des photos</button>' +
+      '<div id="ags-msg"></div>' +
+      '<button type="button" class="ags-go" id="ags-send">Publier</button>' +
+      '<button type="button" class="ags-x" id="ags-close">Annuler</button>' +
+      '</div>';
+    document.body.appendChild(o);
 
-const modal=document.querySelector('#o-pub .modal');
-modal.querySelector('.btn-confirm').insertAdjacentHTML('beforebegin',
- `<label for="f-wa">Votre numéro WhatsApp</label><input id="f-wa" type="tel" inputmode="tel" placeholder="6XX XXX XXX">
-  <label for="f-ph">Photos (4 maximum)</label><label class="addph" for="f-ph">Ajouter des photos</label>
-  <input id="f-ph" type="file" accept="image/*" multiple hidden><div id="f-thumbs"></div>`);
-function thumbs(){document.getElementById('f-thumbs').innerHTML=picked.map((f,i)=>`<div class="th"><img alt="" src="${URL.createObjectURL(f)}"><button type="button" aria-label="Retirer la photo" onclick="rmPh(${i})">×</button></div>`).join('')}
-window.rmPh=function(i){picked.splice(i,1);thumbs()};
-const fi=document.getElementById('f-ph');
-fi.addEventListener('change',()=>{for(const f of fi.files){if(picked.length<4&&/^image\//.test(f.type))picked.push(f)}fi.value='';thumbs()});
+    $('#ags-close').onclick = closePublish;
+    o.addEventListener('click', function (e) { if (e.target === o) closePublish(); });
+    $('#ags-addph').onclick = function () { $('#ags-f').click(); };
+    $('#ags-f').addEventListener('change', function (e) {
+      var files = Array.prototype.slice.call(e.target.files || []);
+      files.forEach(function (f) { if (picked.length < MAX_PH) picked.push(f); });
+      e.target.value = '';
+      thumbs();
+    });
+    $('#ags-th').addEventListener('click', function (e) {
+      var i = e.target.getAttribute && e.target.getAttribute('data-rm');
+      if (i !== null && i !== undefined) { picked.splice(parseInt(i, 10), 1); thumbs(); }
+    });
+    $('#ags-send').onclick = publish;
+  }
 
-const _op=window.openPublish;
-window.openPublish=function(){_op();try{const w=localStorage.getItem('agro_wa');if(w&&!document.getElementById('f-wa').value)document.getElementById('f-wa').value=w}catch(e){}};
+  function thumbs() {
+    var box = $('#ags-th');
+    box.innerHTML = '';
+    picked.forEach(function (f, i) {
+      var d = document.createElement('div');
+      var im = document.createElement('img');
+      im.src = URL.createObjectURL(f);
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = 'x';
+      b.setAttribute('data-rm', i);
+      d.appendChild(im);
+      d.appendChild(b);
+      box.appendChild(d);
+    });
+  }
 
-window.publish=async function(){
-  if(busy)return;
-  const nm=f_nm.value.trim(),pr=parseFloat(f_pr.value),un=f_un.value.trim()||'unité',ct=f_ct.value,tx=f_tx.value.trim(),w=waNum(document.getElementById('f-wa').value);
-  if(!nm||isNaN(pr)||pr<0){toast('Indiquez le nom et le prix du produit');return}
-  if(!w){toast('Indiquez un numéro WhatsApp valide');return}
-  if(!user){toast("Connectez-vous d'abord avec Pi");return}
-  busy=true;const btn=document.querySelector('#o-pub .btn-confirm');btn.textContent='Publication en cours…';btn.disabled=true;
-  try{
-    const urls=[];for(const f of picked)urls.push(await upload(f));
-    await post('annonces',{vendeur:user.username,whatsapp:w,nom:nm,prix:pr,unite:un,categorie:ct,description:tx,photos:urls});
-    try{localStorage.setItem('agro_wa',w)}catch(e){}
-    f_nm.value=f_pr.value=f_un.value=f_tx.value='';picked=[];thumbs();
-    closeAll();go('feed');await loadRemote();toast('Produit publié');
-  }catch(e){console.warn(e);toast('Publication impossible. Vérifiez votre connexion et réessayez.')}
-  busy=false;btn.textContent='Publier';btn.disabled=false;
-};
+  function msg(t, cls) {
+    var m = $('#ags-msg');
+    m.className = cls || '';
+    m.textContent = t || '';
+  }
 
-loadRemote();
-setInterval(()=>{const a=document.activeElement;if(document.hidden||busy||(a&&a.tagName==='INPUT'))return;loadRemote()},60000);
+  function openPublish() {
+    addStyles();
+    buildModal();
+    $('#ags-ve').value = $('#ags-ve').value || store('ags_nom');
+    $('#ags-wa').value = $('#ags-wa').value || store('ags_wa');
+    msg('');
+    $('#ags-ov').classList.add('on');
+  }
+
+  function closePublish() {
+    var o = $('#ags-ov');
+    if (o) o.classList.remove('on');
+  }
+
+  function publish() {
+    var titre = $('#ags-ti').value.trim();
+    var vendeur = $('#ags-ve').value.trim();
+    var wa = waNum($('#ags-wa').value);
+    if (!titre) return msg('Entrez le titre du produit.', 'err');
+    if (!vendeur) return msg('Entrez votre nom.', 'err');
+    if (wa.length < 9) return msg('Entrez un numéro WhatsApp valide.', 'err');
+
+    var btn = $('#ags-send');
+    btn.disabled = true;
+    msg('Envoi en cours, patientez...');
+
+    var files = picked.slice();
+    var chain = Promise.resolve([]);
+    files.forEach(function (f) {
+      chain = chain.then(function (urls) {
+        return compress(f).then(upload).then(function (u) { urls.push(u); return urls; });
+      });
+    });
+
+    chain.then(function (urls) {
+      var prix = parseInt($('#ags-pr').value, 10);
+      return api('/rest/v1/annonces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          titre: titre,
+          description: $('#ags-de').value.trim(),
+          prix: isNaN(prix) ? null : prix,
+          localite: $('#ags-lo').value.trim(),
+          vendeur: vendeur,
+          whatsapp: wa,
+          photos: urls
+        })
+      });
+    }).then(function () {
+      store('ags_nom', vendeur);
+      store('ags_wa', wa);
+      picked = [];
+      thumbs();
+      ['ags-ti', 'ags-de', 'ags-pr', 'ags-lo'].forEach(function (id) { $('#' + id).value = ''; });
+      msg('Annonce publiée !', 'ok');
+      btn.disabled = false;
+      loadFeed();
+      setTimeout(closePublish, 900);
+    }).catch(function (e) {
+      btn.disabled = false;
+      msg('Erreur : ' + e.message, 'err');
+    });
+  }
+
+  /* ---------- Fil des annonces ---------- */
+  function feedBox() {
+    var f = $('#social-feed');
+    if (!f) {
+      f = document.createElement('div');
+      f.id = 'social-feed';
+      document.body.appendChild(f);
+    }
+    f.classList.add('ags-wrap');
+    f.id = 'social-feed';
+    return f;
+  }
+
+  function card(a) {
+    var ph = Array.isArray(a.photos) ? a.photos : [];
+    var imgs = ph.length
+      ? '<div class="ags-ph">' + ph.map(function (u) { return '<img loading="lazy" alt="" src="' + esc(u) + '">'; }).join('') + '</div>'
+      : '';
+    var prix = a.prix != null ? '<div class="ags-pr">' + esc(Number(a.prix).toLocaleString('fr-FR')) + ' FCFA</div>' : '';
+    var date = a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : '';
+    var meta = [a.vendeur, a.localite, date].filter(Boolean).map(esc).join(' · ');
+    var txt = encodeURIComponent('Bonjour, je suis intéressé(e) par votre annonce AGROSSIGNOL : ' + (a.titre || ''));
+    return '<div class="ags-card" data-id="' + esc(a.id) + '">' + imgs +
+      '<div class="ags-b"><p class="ags-t">' + esc(a.titre) + '</p>' + prix +
+      '<div class="ags-m">' + meta + '</div>' +
+      (a.description ? '<p class="ags-d">' + esc(a.description) + '</p>' : '') +
+      '<div class="ags-row">' +
+      '<button type="button" class="ags-btn ags-cm" data-act="cm">Commenter</button>' +
+      '<a class="ags-btn ags-wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(waNum(a.whatsapp)) + '?text=' + txt + '">WhatsApp</a>' +
+      '</div></div>' +
+      '<div class="ags-cbox"></div></div>';
+  }
+
+  function loadFeed() {
+    var f = feedBox();
+    api('/rest/v1/annonces?select=*&order=created_at.desc&limit=30').then(function (rows) {
+      rows = rows || [];
+      f.innerHTML = '<h2>Dernières publications</h2>' +
+        (rows.length ? rows.map(card).join('') : '<p style="padding:8px 4px">Aucune annonce pour le moment. Soyez le premier à publier !</p>');
+    }).catch(function (e) {
+      f.innerHTML = '<p style="padding:8px 4px;color:#c0392b">Impossible de charger les annonces : ' + esc(e.message) + '</p>';
+    });
+  }
+
+  function renderComments(box, id) {
+    api('/rest/v1/commentaires?select=*&annonce_id=eq.' + encodeURIComponent(id) + '&order=created_at.asc').then(function (rows) {
+      rows = rows || [];
+      box.innerHTML =
+        rows.map(function (c) { return '<p class="ags-c"><b>' + esc(c.auteur) + '</b> : ' + esc(c.texte) + '</p>'; }).join('') +
+        (rows.length ? '' : '<p class="ags-c">Aucun commentaire pour le moment.</p>') +
+        '<input class="ags-in" data-f="au" maxlength="60" placeholder="Votre nom" value="' + esc(store('ags_nom')) + '">' +
+        '<input class="ags-in" data-f="tx" maxlength="400" placeholder="Votre commentaire">' +
+        '<button type="button" class="ags-btn ags-cm" data-act="send">Envoyer</button>' +
+        '<div class="ags-m" data-f="er" style="color:#c0392b"></div>';
+    }).catch(function (e) {
+      box.innerHTML = '<p class="ags-c" style="color:#c0392b">Erreur : ' + esc(e.message) + '</p>';
+    });
+  }
+
+  function onFeedClick(e) {
+    var t = e.target;
+    var act = t.getAttribute && t.getAttribute('data-act');
+    if (!act) return;
+    var card = t.closest('.ags-card');
+    if (!card) return;
+    var id = card.getAttribute('data-id');
+    var box = card.querySelector('.ags-cbox');
+
+    if (act === 'cm') {
+      var on = box.classList.toggle('on');
+      if (on) renderComments(box, id);
+      return;
+    }
+    if (act === 'send') {
+      var au = box.querySelector('[data-f="au"]').value.trim();
+      var tx = box.querySelector('[data-f="tx"]').value.trim();
+      var er = box.querySelector('[data-f="er"]');
+      if (!au || !tx) { er.textContent = 'Entrez votre nom et votre commentaire.'; return; }
+      t.disabled = true;
+      api('/rest/v1/commentaires', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ annonce_id: id, auteur: au, texte: tx })
+      }).then(function () {
+        store('ags_nom', au);
+        renderComments(box, id);
+      }).catch(function (x) {
+        t.disabled = false;
+        er.textContent = 'Erreur : ' + x.message;
+      });
+    }
+  }
+
+  /* ---------- Démarrage ---------- */
+  function init() {
+    try {
+      addStyles();
+      if (!$('#ags-fab')) {
+        var b = document.createElement('button');
+        b.id = 'ags-fab';
+        b.type = 'button';
+        b.textContent = '+ Publier';
+        b.onclick = openPublish;
+        document.body.appendChild(b);
+      }
+      feedBox().addEventListener('click', onFeedClick);
+      loadFeed();
+    } catch (e) {
+      console.error('AGROSSIGNOL social :', e);
+    }
+  }
+
+  window.openPublish = openPublish;
+  window.agsRefreshFeed = loadFeed;
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
