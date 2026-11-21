@@ -74,8 +74,7 @@
     s.id = 'ags-style';
     s.textContent =
       '#ags-fab{position:fixed;right:16px;bottom:84px;z-index:9990;background:#e8803a;color:#fff;border:0;border-radius:28px;padding:13px 20px;font:700 15px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.3)}' +
-      '#ags-feed{max-width:640px;margin:0 auto;padding:12px 12px 110px;font-family:system-ui,sans-serif;color:#1d2b21}' +
-      '#ags-feed h2{color:#1f5130;font-size:20px;margin:6px 4px 12px}' +
+      '#social-feed{margin-bottom:18px;color:#1b1b1b}' +
       '.ags-card{background:#fff;border:1px solid #e6dfcc;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}' +
       '.ags-ph{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;background:#f3edda}' +
       '.ags-ph img{flex:0 0 100%;width:100%;max-height:300px;object-fit:cover;scroll-snap-align:start}' +
@@ -175,7 +174,9 @@
   function openPublish() {
     addStyles();
     buildModal();
-    $('#ags-ve').value = $('#ags-ve').value || store('ags_nom');
+    var piNom = '';
+    try { if (typeof user !== 'undefined' && user && user.username) piNom = user.username; } catch (e) {}
+    $('#ags-ve').value = $('#ags-ve').value || store('ags_nom') || piNom;
     $('#ags-wa').value = $('#ags-wa').value || store('ags_wa');
     msg('');
     $('#ags-ov').classList.add('on');
@@ -274,7 +275,7 @@
     var f = feedBox();
     api('/rest/v1/annonces?select=*&order=created_at.desc&limit=30').then(function (rows) {
       rows = rows || [];
-      f.innerHTML = '<h2>Dernières publications</h2>' +
+      f.innerHTML = '<h2>Annonces des vendeurs</h2>' +
         (rows.length ? rows.map(card).join('') : '<p style="padding:8px 4px">Aucune annonce pour le moment. Soyez le premier à publier !</p>');
     }).catch(function (e) {
       f.innerHTML = '<p style="padding:8px 4px;color:#c0392b">Impossible de charger les annonces : ' + esc(e.message) + '</p>';
@@ -334,7 +335,7 @@
   function init() {
     try {
       addStyles();
-      if (!$('#ags-fab')) {
+      if (!$('#ags-fab') && !$('nav.bottom .pub')) {
         var b = document.createElement('button');
         b.id = 'ags-fab';
         b.type = 'button';
