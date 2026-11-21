@@ -38,4 +38,11 @@ app.post('/payment/complete', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  res.json({ sta
+  res.json({ status: 'ok', service: 'agrossignol-backend' });
+});
+
+module.exports = app;
+
+if (require.main === module) {
+  app.listen(process.env.PORT || 3000);
+}
