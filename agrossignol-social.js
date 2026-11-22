@@ -356,3 +356,35 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
+/* === DIAGNOSTIC PAIEMENT (temporaire) === */
+(function(){
+  function boite(m){
+    var d=document.createElement('div');
+    d.style.cssText='position:fixed;left:10px;right:10px;top:70px;z-index:9999;background:#fff;border:3px solid #c4561a;border-radius:12px;padding:12px;font-size:14px;word-break:break-word';
+    d.textContent=m+' (touchez pour fermer)';
+    d.onclick=function(){d.remove()};
+    document.body.appendChild(d);
+  }
+  window.pay=function(){
+    if(!PI_OK){toast('Ouvrez AGROSSIGNOL dans Pi Browser pour payer');closeAll();return}
+    if(!user){toast("Connectez-vous d'abord avec Pi");closeAll();return}
+    var t0=Date.now();
+    Pi.createPayment({amount:cur.price,memo:'Achat : '+cur.name+' sur Agrossignol',metadata:{productId:cur.id,seller:cur.seller}},{
+      onReadyForServerApproval:async function(id){
+        try{
+          var r=await fetch(BACKEND+'/payment/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paymentId:id})});
+          var tx=await r.text();
+          boite('Approbation : HTTP '+r.status+' en '+(Date.now()-t0)+' ms. Reponse : '+tx.slice(0,250));
+        }catch(e){
+          boite('Approbation impossible : '+e.message);
+        }
+      },
+      onReadyForServerCompletion:async function(id,txid){
+        await fetch(BACKEND+'/payment/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paymentId:id,txid:txid})});
+        closeAll();toast('Commande réussie, merci !');
+      },
+      onCancel:function(){closeAll();toast('Paiement annulé')},
+      onError:function(e){closeAll();boite('Erreur Pi : '+e.message)}
+    });
+  };
+})();
