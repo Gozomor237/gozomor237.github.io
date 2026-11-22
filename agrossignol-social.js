@@ -388,3 +388,43 @@
     });
   };
 })();
+/* === DIAGNOSTIC PAIEMENT v2 === */
+(function(){
+  var lignes=[], el=null;
+  function log(m){
+    lignes.push(new Date().toLocaleTimeString()+' '+m);
+    if(!el||!el.isConnected){
+      el=document.createElement('div');
+      el.style.cssText='position:fixed;left:8px;right:8px;top:70px;z-index:99999;background:#fff;border:3px solid #c4561a;border-radius:12px;padding:10px;font-size:13px;word-break:break-word;max-height:60vh;overflow:auto;white-space:pre-wrap';
+      el.onclick=function(){el.remove();lignes=[]};
+      document.body.appendChild(el);
+    }
+    el.textContent=lignes.join('\n');
+  }
+  window.pay=function(){
+    lignes=[];
+    log('1. Bouton Payer touche');
+    if(!PI_OK){log('Pi SDK absent');return}
+    if(!user){log('Pas connecte avec Pi');return}
+    var t0=Date.now();
+    try{
+      Pi.createPayment({amount:cur.price,memo:'Achat : '+cur.name+' sur Agrossignol',metadata:{productId:cur.id,seller:cur.seller}},{
+        onReadyForServerApproval:function(id){
+          log('2. Pi demande approbation, id='+String(id).slice(0,8));
+          fetch(BACKEND+'/payment/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paymentId:id})})
+            .then(function(r){return r.text().then(function(tx){log('3. Serveur : HTTP '+r.status+' en '+(Date.now()-t0)+' ms : '+tx.slice(0,200))})})
+            .catch(function(e){log('3. Echec envoi au serveur : '+e.message)});
+        },
+        onReadyForServerCompletion:function(id,txid){
+          log('4. Pi demande la finalisation');
+          fetch(BACKEND+'/payment/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paymentId:id,txid:txid})})
+            .then(function(r){return r.text().then(function(tx){log('5. Finalisation : HTTP '+r.status+' : '+tx.slice(0,200))})})
+            .catch(function(e){log('5. Echec finalisation : '+e.message)});
+        },
+        onCancel:function(){log('Annule (onCancel)')},
+        onError:function(e){log('Erreur Pi : '+(e&&e.message))}
+      });
+      log('1b. createPayment appele');
+    }catch(e){log('Exception : '+e.message)}
+  };
+})();
