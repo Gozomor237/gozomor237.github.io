@@ -1,4 +1,5 @@
 /* AGROSSIGNOL - Publications, photos et commentaires (Supabase)
+   Version 2 : prix en π, unité, stock et compte Pi du vendeur.
    Fichier autonome : ne touche ni au Pi SDK, ni aux paiements, ni au diagnostic IA. */
 (function () {
   'use strict';
@@ -21,6 +22,13 @@
     return d;
   }
   function store(k, v) { try { if (v === undefined) return localStorage.getItem(k) || ''; localStorage.setItem(k, v); } catch (e) { return ''; } }
+  function fmtPi(v) { return Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 4 }); }
+
+  /* Compte Pi connecté (défini dans index.html après la connexion Pi) */
+  function piUser() {
+    try { if (typeof user !== 'undefined' && user) return user; } catch (e) {}
+    return null;
+  }
 
   /* ---------- Appels Supabase ---------- */
   function api(path, opt) {
@@ -80,7 +88,10 @@
       '.ags-ph img{flex:0 0 100%;width:100%;max-height:300px;object-fit:cover;scroll-snap-align:start}' +
       '.ags-b{padding:12px 14px}' +
       '.ags-t{font-weight:700;font-size:17px;color:#1f5130;margin:0 0 4px}' +
-      '.ags-pr{color:#e8803a;font-weight:700;font-size:16px}' +
+      '.ags-pr{color:#e8803a;font-weight:700;font-size:17px}' +
+      '.ags-pr small{font-size:13px;font-weight:400;color:#6b6b5e}' +
+      '.ags-old{font-size:13px;color:#6b6b5e;margin:2px 0}' +
+      '.ags-stock{font-size:13px;color:#1f5130;margin:2px 0 4px}' +
       '.ags-m{font-size:13px;color:#6b6b5e;margin:2px 0 8px}' +
       '.ags-d{font-size:14px;line-height:1.45;margin:0 0 10px;white-space:pre-wrap}' +
       '.ags-row{display:flex;gap:8px}' +
@@ -92,6 +103,8 @@
       '.ags-c{font-size:14px;margin:0 0 8px}' +
       '.ags-c b{color:#1f5130}' +
       '.ags-in{width:100%;box-sizing:border-box;border:1px solid #d8d0b8;border-radius:10px;padding:10px;font:15px system-ui,sans-serif;margin-bottom:8px;background:#fff}' +
+      '.ags-2{display:flex;gap:8px}.ags-2>div{flex:1;min-width:0}' +
+      '.ags-hint{font-size:12px;color:#6b6b5e;margin:-4px 0 8px}' +
       '#ags-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9995;display:none;align-items:flex-end;justify-content:center}' +
       '#ags-ov.on{display:flex}' +
       '#ags-box{background:#faf5e9;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:16px;box-sizing:border-box;font-family:system-ui,sans-serif}' +
@@ -118,7 +131,12 @@
       '<h3>Publier une annonce</h3>' +
       '<label>Titre du produit *</label><input class="ags-in" id="ags-ti" maxlength="80" placeholder="Ex : Maïs frais, sac de 50 kg">' +
       '<label>Description</label><textarea class="ags-in" id="ags-de" rows="3" maxlength="600" placeholder="Qualité, quantité, disponibilité..."></textarea>' +
-      '<label>Prix (FCFA)</label><input class="ags-in" id="ags-pr" type="number" inputmode="numeric" placeholder="Ex : 15000">' +
+      '<div class="ags-2">' +
+      '<div><label>Prix en π *</label><input class="ags-in" id="ags-pi" type="text" inputmode="decimal" placeholder="Ex : 0.5"></div>' +
+      '<div><label>Par unité *</label><input class="ags-in" id="ags-un" maxlength="20" placeholder="kg, sac, panier"></div>' +
+      '</div>' +
+      '<div class="ags-hint">Le prix en π est le montant payé par l\'acheteur.</div>' +
+      '<label>Stock disponible *</label><input class="ags-in" id="ags-st" type="text" inputmode="numeric" placeholder="Ex : 20">' +
       '<label>Localité</label><input class="ags-in" id="ags-lo" maxlength="60" placeholder="Ex : Maroua">' +
       '<label>Votre nom *</label><input class="ags-in" id="ags-ve" maxlength="60">' +
       '<label>Numéro WhatsApp *</label><input class="ags-in" id="ags-wa" type="tel" inputmode="tel" placeholder="Ex : 6XXXXXXXX">' +
@@ -174,8 +192,8 @@
   function openPublish() {
     addStyles();
     buildModal();
-    var piNom = '';
-    try { if (typeof user !== 'undefined' && user && user.username) piNom = user.username; } catch (e) {}
+    var u = piUser();
+    var piNom = u && u.username ? u.username : '';
     $('#ags-ve').value = $('#ags-ve').value || store('ags_nom') || piNom;
     $('#ags-wa').value = $('#ags-wa').value || store('ags_wa');
     msg('');
@@ -191,7 +209,16 @@
     var titre = $('#ags-ti').value.trim();
     var vendeur = $('#ags-ve').value.trim();
     var wa = waNum($('#ags-wa').value);
+    var piTxt = $('#ags-pi').value.trim().replace(',', '.');
+    var piVal = parseFloat(piTxt);
+    var unite = $('#ags-un').value.trim();
+    var stockTxt = $('#ags-st').value.trim();
+    var stock = parseInt(stockTxt, 10);
+
     if (!titre) return msg('Entrez le titre du produit.', 'err');
+    if (!/^\d+(\.\d{1,4})?$/.test(piTxt) || !(piVal > 0)) return msg('Entrez un prix en π valide (ex : 0.5).', 'err');
+    if (!unite) return msg('Indiquez l\'unité (kg, sac, panier...).', 'err');
+    if (!/^\d+$/.test(stockTxt) || !(stock >= 1)) return msg('Indiquez le stock disponible (un nombre, 1 ou plus).', 'err');
     if (!vendeur) return msg('Entrez votre nom.', 'err');
     if (wa.length < 9) return msg('Entrez un numéro WhatsApp valide.', 'err');
 
@@ -208,16 +235,21 @@
     });
 
     chain.then(function (urls) {
-      var prix = parseInt($('#ags-pr').value, 10);
+      var u = piUser();
       return api('/rest/v1/annonces', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
         body: JSON.stringify({
           titre: titre,
           description: $('#ags-de').value.trim(),
-          prix: isNaN(prix) ? null : prix,
+          prix: null,
+          prix_pi: piVal,
+          unite: unite,
+          stock: stock,
           localite: $('#ags-lo').value.trim(),
           vendeur: vendeur,
+          vendeur_pi: u && u.username ? u.username : null,
+          vendeur_uid: u && u.uid ? u.uid : null,
           whatsapp: wa,
           photos: urls
         })
@@ -227,7 +259,7 @@
       store('ags_wa', wa);
       picked = [];
       thumbs();
-      ['ags-ti', 'ags-de', 'ags-pr', 'ags-lo'].forEach(function (id) { $('#' + id).value = ''; });
+      ['ags-ti', 'ags-de', 'ags-pi', 'ags-un', 'ags-st', 'ags-lo'].forEach(function (id) { $('#' + id).value = ''; });
       msg('Annonce publiée !', 'ok');
       btn.disabled = false;
       loadFeed();
@@ -251,17 +283,27 @@
     return f;
   }
 
+  function priceBlock(a) {
+    if (a.prix_pi != null) {
+      var u = a.unite ? ' <small>/ ' + esc(a.unite) + '</small>' : '';
+      var st = a.stock != null ? '<div class="ags-stock">Stock disponible : ' + esc(a.stock) + (a.unite ? ' ' + esc(a.unite) : '') + '</div>' : '';
+      return '<div class="ags-pr">' + esc(fmtPi(a.prix_pi)) + ' π' + u + '</div>' + st;
+    }
+    /* Anciennes annonces : prix en FCFA seulement, en attente d'un prix en π */
+    var old = a.prix != null ? '<div class="ags-old">Ancien prix : ' + esc(Number(a.prix).toLocaleString('fr-FR')) + ' FCFA</div>' : '';
+    return old + '<div class="ags-old">Prix en π à définir par le vendeur.</div>';
+  }
+
   function card(a) {
     var ph = Array.isArray(a.photos) ? a.photos : [];
     var imgs = ph.length
       ? '<div class="ags-ph">' + ph.map(function (u) { return '<img loading="lazy" alt="" src="' + esc(u) + '">'; }).join('') + '</div>'
       : '';
-    var prix = a.prix != null ? '<div class="ags-pr">' + esc(Number(a.prix).toLocaleString('fr-FR')) + ' FCFA</div>' : '';
     var date = a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : '';
     var meta = [a.vendeur, a.localite, date].filter(Boolean).map(esc).join(' · ');
     var txt = encodeURIComponent('Bonjour, je suis intéressé(e) par votre annonce AGROSSIGNOL : ' + (a.titre || ''));
     return '<div class="ags-card" data-id="' + esc(a.id) + '">' + imgs +
-      '<div class="ags-b"><p class="ags-t">' + esc(a.titre) + '</p>' + prix +
+      '<div class="ags-b"><p class="ags-t">' + esc(a.titre) + '</p>' + priceBlock(a) +
       '<div class="ags-m">' + meta + '</div>' +
       (a.description ? '<p class="ags-d">' + esc(a.description) + '</p>' : '') +
       '<div class="ags-row">' +
@@ -355,76 +397,4 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
-})();
-/* === DIAGNOSTIC PAIEMENT (temporaire) === */
-(function(){
-  function boite(m){
-    var d=document.createElement('div');
-    d.style.cssText='position:fixed;left:10px;right:10px;top:70px;z-index:9999;background:#fff;border:3px solid #c4561a;border-radius:12px;padding:12px;font-size:14px;word-break:break-word';
-    d.textContent=m+' (touchez pour fermer)';
-    d.onclick=function(){d.remove()};
-    document.body.appendChild(d);
-  }
-  window.pay=function(){
-    if(!PI_OK){toast('Ouvrez AGROSSIGNOL dans Pi Browser pour payer');closeAll();return}
-    if(!user){toast("Connectez-vous d'abord avec Pi");closeAll();return}
-    var t0=Date.now();
-    Pi.createPayment({amount:cur.price,memo:'Achat : '+cur.name+' sur Agrossignol',metadata:{productId:cur.id,seller:cur.seller}},{
-      onReadyForServerApproval:async function(id){
-        try{
-          var r=await fetch(BACKEND+'/payment/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paymentId:id})});
-          var tx=await r.text();
-          boite('Approbation : HTTP '+r.status+' en '+(Date.now()-t0)+' ms. Reponse : '+tx.slice(0,250));
-        }catch(e){
-          boite('Approbation impossible : '+e.message);
-        }
-      },
-      onReadyForServerCompletion:async function(id,txid){
-        await fetch(BACKEND+'/payment/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paymentId:id,txid:txid})});
-        closeAll();toast('Commande réussie, merci !');
-      },
-      onCancel:function(){closeAll();toast('Paiement annulé')},
-      onError:function(e){closeAll();boite('Erreur Pi : '+e.message)}
-    });
-  };
-})();
-/* === DIAGNOSTIC PAIEMENT v2 === */
-(function(){
-  var lignes=[], el=null;
-  function log(m){
-    lignes.push(new Date().toLocaleTimeString()+' '+m);
-    if(!el||!el.isConnected){
-      el=document.createElement('div');
-      el.style.cssText='position:fixed;left:8px;right:8px;top:70px;z-index:99999;background:#fff;border:3px solid #c4561a;border-radius:12px;padding:10px;font-size:13px;word-break:break-word;max-height:60vh;overflow:auto;white-space:pre-wrap';
-      el.onclick=function(){el.remove();lignes=[]};
-      document.body.appendChild(el);
-    }
-    el.textContent=lignes.join('\n');
-  }
-  window.pay=function(){
-    lignes=[];
-    log('1. Bouton Payer touche');
-    if(!PI_OK){log('Pi SDK absent');return}
-    if(!user){log('Pas connecte avec Pi');return}
-    var t0=Date.now();
-    try{
-      Pi.createPayment({amount:cur.price,memo:'Achat : '+cur.name+' sur Agrossignol',metadata:{productId:cur.id,seller:cur.seller}},{
-        onReadyForServerApproval:function(id){
-          log('2. Pi demande approbation, id='+String(id).slice(0,8));
-          fetch(BACKEND+'/payment/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paymentId:id})})
-            .then(function(r){return r.text().then(function(tx){log('3. Serveur : HTTP '+r.status+' en '+(Date.now()-t0)+' ms : '+tx.slice(0,200))})})
-            .catch(function(e){log('3. Echec envoi au serveur : '+e.message)});
-        },
-        onReadyForServerCompletion:function(id,txid){
-          log('4. Pi demande la finalisation');
-          fetch(BACKEND+'/payment/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paymentId:id,txid:txid})})
-            .then(function(r){return r.text().then(function(tx){log('5. Finalisation : HTTP '+r.status+' : '+tx.slice(0,200))})})
-            .catch(function(e){log('5. Echec finalisation : '+e.message)});
-        },
-        onCancel:function(){log('Annule (onCancel)')},
-        onError:function(e){log('Erreur Pi : '+(e&&e.message))}
-      });
-      log('1b. createPayment appele');
-    }catch(e){log('Exception : '+e.message)}
-  };
 })();
