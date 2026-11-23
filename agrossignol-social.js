@@ -1,6 +1,6 @@
-/* AGROSSIGNOL - Publications, photos et commentaires (Supabase)
-   Version 2 : prix en π, unité, stock et compte Pi du vendeur.
-   Fichier autonome : ne touche ni au Pi SDK, ni aux paiements, ni au diagnostic IA. */
+/* AGROSSIGNOL - Publications, photos, commentaires et achat (Supabase)
+   Version 3 : fiche annonce (maquette) + bouton Acheter maintenant.
+   Réutilise le paiement Pi existant de index.html (pay). Ne touche ni au Pi SDK, ni au backend, ni au diagnostic IA. */
 (function () {
   'use strict';
 
@@ -8,7 +8,9 @@
   var SB_KEY = 'sb_publishable_OlIbCWjQlDwI1FIsrVq4Pw_yPLeSd5H';
   var BUCKET = 'photos';
   var MAX_PH = 4;
+  var FCFA_PAR_PI = 500; /* repère indicatif provisoire, à remplacer par un vrai taux */
   var picked = [];
+  var ROWS = {};
 
   function $(s, r) { return (r || document).querySelector(s); }
   function esc(t) {
@@ -23,6 +25,7 @@
   }
   function store(k, v) { try { if (v === undefined) return localStorage.getItem(k) || ''; localStorage.setItem(k, v); } catch (e) { return ''; } }
   function fmtPi(v) { return Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 4 }); }
+  function say(m) { try { if (typeof toast === 'function') toast(m); else alert(m); } catch (e) {} }
 
   /* Compte Pi connecté (défini dans index.html après la connexion Pi) */
   function piUser() {
@@ -87,16 +90,22 @@
       '.ags-ph{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;background:#f3edda}' +
       '.ags-ph img{flex:0 0 100%;width:100%;max-height:300px;object-fit:cover;scroll-snap-align:start}' +
       '.ags-b{padding:12px 14px}' +
-      '.ags-t{font-weight:700;font-size:17px;color:#1f5130;margin:0 0 4px}' +
-      '.ags-pr{color:#e8803a;font-weight:700;font-size:17px}' +
-      '.ags-pr small{font-size:13px;font-weight:400;color:#6b6b5e}' +
+      '.ags-th{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}' +
+      '.ags-t{font-weight:700;font-size:19px;color:#1f5130;margin:0 0 2px}' +
+      '.ags-badge{flex-shrink:0;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;background:#e6f0e4;color:#1f5130}' +
+      '.ags-badge.off{background:#f6e0d8;color:#a33a1a}' +
+      '.ags-by{font-size:13px;color:#6b6b5e;margin:0 0 6px}' +
+      '.ags-pr{color:#1f5130;font-weight:800;font-size:24px;margin-top:4px}' +
+      '.ags-pr small{font-size:14px;font-weight:400;color:#6b6b5e}' +
+      '.ags-fcfa{font-size:13px;color:#6b6b5e;margin:0 0 6px}' +
       '.ags-old{font-size:13px;color:#6b6b5e;margin:2px 0}' +
-      '.ags-stock{font-size:13px;color:#1f5130;margin:2px 0 4px}' +
-      '.ags-m{font-size:13px;color:#6b6b5e;margin:2px 0 8px}' +
+      '.ags-stock{font-size:14px;color:#1f5130;margin:2px 0}' +
+      '.ags-m{font-size:14px;color:#6b6b5e;margin:2px 0 8px}' +
       '.ags-d{font-size:14px;line-height:1.45;margin:0 0 10px;white-space:pre-wrap}' +
-      '.ags-row{display:flex;gap:8px}' +
-      '.ags-btn{flex:1;border:0;border-radius:10px;padding:11px;font:700 14px system-ui,sans-serif;text-align:center;text-decoration:none;display:block}' +
-      '.ags-wa{background:#1f9d55;color:#fff}' +
+      '.ags-row{display:flex;gap:8px;margin-top:8px}' +
+      '.ags-btn{flex:1;border:0;border-radius:12px;padding:12px;font:700 14px system-ui,sans-serif;text-align:center;text-decoration:none;display:block}' +
+      '.ags-buy{width:100%;background:#1f5130;color:#fff;font-size:16px;padding:14px}' +
+      '.ags-wa{background:#fff;color:#1f5130;border:2px solid #1f5130}' +
       '.ags-cm{background:#f3edda;color:#1f5130}' +
       '.ags-cbox{display:none;border-top:1px solid #eee;padding:10px 14px;background:#faf5e9}' +
       '.ags-cbox.on{display:block}' +
@@ -283,11 +292,17 @@
     return f;
   }
 
+  function canBuy(a) {
+    return a.prix_pi != null && Number(a.prix_pi) > 0 && (a.stock == null || Number(a.stock) >= 1);
+  }
+
   function priceBlock(a) {
     if (a.prix_pi != null) {
       var u = a.unite ? ' <small>/ ' + esc(a.unite) + '</small>' : '';
-      var st = a.stock != null ? '<div class="ags-stock">Stock disponible : ' + esc(a.stock) + (a.unite ? ' ' + esc(a.unite) : '') + '</div>' : '';
-      return '<div class="ags-pr">' + esc(fmtPi(a.prix_pi)) + ' π' + u + '</div>' + st;
+      var fcfa = Math.round(Number(a.prix_pi) * FCFA_PAR_PI);
+      var st = a.stock != null ? '<div class="ags-stock">Quantité disponible : ' + esc(a.stock) + (a.unite ? ' ' + esc(a.unite) : '') + '</div>' : '';
+      return '<div class="ags-pr">' + esc(fmtPi(a.prix_pi)) + ' π' + u + '</div>' +
+        '<div class="ags-fcfa">≈ ' + esc(fcfa.toLocaleString('fr-FR')) + ' FCFA (repère indicatif)</div>' + st;
     }
     /* Anciennes annonces : prix en FCFA seulement, en attente d'un prix en π */
     var old = a.prix != null ? '<div class="ags-old">Ancien prix : ' + esc(Number(a.prix).toLocaleString('fr-FR')) + ' FCFA</div>' : '';
@@ -295,20 +310,31 @@
   }
 
   function card(a) {
+    ROWS[a.id] = a;
     var ph = Array.isArray(a.photos) ? a.photos : [];
     var imgs = ph.length
       ? '<div class="ags-ph">' + ph.map(function (u) { return '<img loading="lazy" alt="" src="' + esc(u) + '">'; }).join('') + '</div>'
       : '';
     var date = a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : '';
-    var meta = [a.vendeur, a.localite, date].filter(Boolean).map(esc).join(' · ');
+    var meta = [a.localite, date].filter(Boolean).map(esc).join(' · ');
     var txt = encodeURIComponent('Bonjour, je suis intéressé(e) par votre annonce AGROSSIGNOL : ' + (a.titre || ''));
+    var badge = '';
+    if (a.prix_pi != null) {
+      badge = (a.stock != null && Number(a.stock) < 1)
+        ? '<span class="ags-badge off">Épuisé</span>'
+        : '<span class="ags-badge">Disponible</span>';
+    }
     return '<div class="ags-card" data-id="' + esc(a.id) + '">' + imgs +
-      '<div class="ags-b"><p class="ags-t">' + esc(a.titre) + '</p>' + priceBlock(a) +
-      '<div class="ags-m">' + meta + '</div>' +
+      '<div class="ags-b">' +
+      '<div class="ags-th"><p class="ags-t">' + esc(a.titre) + '</p>' + badge + '</div>' +
+      '<div class="ags-by">Publié par : ' + esc(a.vendeur) + '</div>' +
+      priceBlock(a) +
+      (meta ? '<div class="ags-m">' + meta + '</div>' : '') +
       (a.description ? '<p class="ags-d">' + esc(a.description) + '</p>' : '') +
+      (canBuy(a) ? '<button type="button" class="ags-btn ags-buy" data-act="buy">Acheter maintenant</button>' : '') +
       '<div class="ags-row">' +
+      '<a class="ags-btn ags-wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(waNum(a.whatsapp)) + '?text=' + txt + '">Contacter le vendeur</a>' +
       '<button type="button" class="ags-btn ags-cm" data-act="cm">Commenter</button>' +
-      '<a class="ags-btn ags-wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(waNum(a.whatsapp)) + '?text=' + txt + '">WhatsApp</a>' +
       '</div></div>' +
       '<div class="ags-cbox"></div></div>';
   }
@@ -317,11 +343,33 @@
     var f = feedBox();
     api('/rest/v1/annonces?select=*&order=created_at.desc&limit=30').then(function (rows) {
       rows = rows || [];
+      ROWS = {};
       f.innerHTML = '<h2>Annonces des vendeurs</h2>' +
         (rows.length ? rows.map(card).join('') : '<p style="padding:8px 4px">Aucune annonce pour le moment. Soyez le premier à publier !</p>');
     }).catch(function (e) {
       f.innerHTML = '<p style="padding:8px 4px;color:#c0392b">Impossible de charger les annonces : ' + esc(e.message) + '</p>';
     });
+  }
+
+  /* ---------- Achat : réutilise la fenêtre et le paiement Pi de index.html ---------- */
+  function buy(a) {
+    if (!a || !canBuy(a)) return say('Cette annonce n\'est pas disponible à l\'achat.');
+    var u = piUser();
+    if (u && a.vendeur_uid && u.uid === a.vendeur_uid) return say('Vous ne pouvez pas acheter votre propre annonce.');
+    try {
+      closeAll();
+      cur = { id: a.id, name: a.titre, price: Number(a.prix_pi), seller: a.vendeur, cat: '', unit: a.unite || '' };
+      var photo = Array.isArray(a.photos) && a.photos.length ? a.photos[0] : '';
+      b_em.innerHTML = '<div class="ph" data-i="' + esc((a.titre || '?').charAt(0).toUpperCase()) + '">' +
+        (photo ? '<img alt="" src="' + esc(photo) + '">' : '') + '</div>';
+      b_nm.textContent = a.titre;
+      b_sl.textContent = a.vendeur + (a.localite ? ' · ' + a.localite : '');
+      b_pr.textContent = fmtPi(a.prix_pi) + 'π';
+      o_buy.classList.add('open');
+    } catch (e) {
+      console.error('AGROSSIGNOL achat :', e);
+      say('Achat indisponible sur cette page. Rechargez et réessayez.');
+    }
   }
 
   function renderComments(box, id) {
@@ -348,6 +396,10 @@
     var id = card.getAttribute('data-id');
     var box = card.querySelector('.ags-cbox');
 
+    if (act === 'buy') {
+      buy(ROWS[id]);
+      return;
+    }
     if (act === 'cm') {
       var on = box.classList.toggle('on');
       if (on) renderComments(box, id);
