@@ -1,5 +1,5 @@
 /* AGROSSIGNOL - Publications, photos, commentaires et achat (Supabase)
-   Version 3 : fiche annonce (maquette) + bouton Acheter maintenant.
+   Version 4 : catégories, Marché alimenté par les vraies annonces, démo masquée.
    Réutilise le paiement Pi existant de index.html (pay). Ne touche ni au Pi SDK, ni au backend, ni au diagnostic IA. */
 (function () {
   'use strict';
@@ -11,6 +11,9 @@
   var FCFA_PAR_PI = 500; /* repère indicatif provisoire, à remplacer par un vrai taux */
   var picked = [];
   var ROWS = {};
+  var ANN = [];
+  var CATS_DEF = ['légumes','fruits','céréales','élevage','vétérinaire','ingrédients','concentrés','intrants','matériel','épices'];
+  function catList() { try { if (typeof CATS !== 'undefined') return Object.keys(CATS); } catch (e) {} return CATS_DEF; }
 
   function $(s, r) { return (r || document).querySelector(s); }
   function esc(t) {
@@ -127,6 +130,7 @@
       '#ags-msg.err{color:#c0392b}#ags-msg.ok{color:#1f9d55}' +
       '.ags-go{background:#1f5130;color:#fff;border:0;border-radius:12px;padding:14px;width:100%;font:700 16px system-ui,sans-serif}' +
       '.ags-x{background:none;border:0;color:#6b6b5e;width:100%;padding:12px;font:15px system-ui,sans-serif}';
+    s.textContent += '@media(max-width:639px){#grid{grid-template-columns:1fr}}#grid .ags-card{margin-bottom:0}';
     document.head.appendChild(s);
   }
 
@@ -139,6 +143,7 @@
       '<div id="ags-box">' +
       '<h3>Publier une annonce</h3>' +
       '<label>Titre du produit *</label><input class="ags-in" id="ags-ti" maxlength="80" placeholder="Ex : Maïs frais, sac de 50 kg">' +
+      '<label>Catégorie *</label><select class="ags-in" id="ags-ca"></select>' +
       '<label>Description</label><textarea class="ags-in" id="ags-de" rows="3" maxlength="600" placeholder="Qualité, quantité, disponibilité..."></textarea>' +
       '<div class="ags-2">' +
       '<div><label>Prix en π *</label><input class="ags-in" id="ags-pi" type="text" inputmode="decimal" placeholder="Ex : 0.5"></div>' +
@@ -205,6 +210,7 @@
     var piNom = u && u.username ? u.username : '';
     $('#ags-ve').value = $('#ags-ve').value || store('ags_nom') || piNom;
     $('#ags-wa').value = $('#ags-wa').value || store('ags_wa');
+    $('#ags-ca').innerHTML = '<option value="">Choisir une catégorie</option>' + catList().map(function (k) { return '<option value="' + esc(k) + '">' + esc(k) + '</option>'; }).join('');
     msg('');
     $('#ags-ov').classList.add('on');
   }
@@ -231,6 +237,9 @@
     if (!vendeur) return msg('Entrez votre nom.', 'err');
     if (wa.length < 9) return msg('Entrez un numéro WhatsApp valide.', 'err');
 
+    var categorie = $('#ags-ca').value;
+    if (!categorie) return msg('Choisissez une catégorie.', 'err');
+
     var btn = $('#ags-send');
     btn.disabled = true;
     msg('Envoi en cours, patientez...');
@@ -250,6 +259,7 @@
         headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
         body: JSON.stringify({
           titre: titre,
+          categorie: categorie,
           description: $('#ags-de').value.trim(),
           prix: null,
           prix_pi: piVal,
@@ -269,6 +279,7 @@
       picked = [];
       thumbs();
       ['ags-ti', 'ags-de', 'ags-pi', 'ags-un', 'ags-st', 'ags-lo'].forEach(function (id) { $('#' + id).value = ''; });
+      $('#ags-ca').value = '';
       msg('Annonce publiée !', 'ok');
       btn.disabled = false;
       loadFeed();
@@ -344,8 +355,10 @@
     api('/rest/v1/annonces?select=*&order=created_at.desc&limit=30').then(function (rows) {
       rows = rows || [];
       ROWS = {};
+      ANN = rows;
       f.innerHTML = '<h2>Annonces des vendeurs</h2>' +
         (rows.length ? rows.map(card).join('') : '<p style="padding:8px 4px">Aucune annonce pour le moment. Soyez le premier à publier !</p>');
+      renderMarketAnn();
     }).catch(function (e) {
       f.innerHTML = '<p style="padding:8px 4px;color:#c0392b">Impossible de charger les annonces : ' + esc(e.message) + '</p>';
     });
@@ -425,6 +438,22 @@
     }
   }
 
+  /* ---------- Marché : vraies annonces par catégorie ---------- */
+  function renderMarketAnn() {
+    var g = document.getElementById('grid');
+    if (!g) return;
+    var c = 'all';
+    try { c = cat; } catch (e) {}
+    var qe = document.getElementById('q');
+    var q = (qe ? qe.value : '').toLowerCase();
+    var l = ANN.filter(function (a) {
+      return (c === 'all' || a.categorie === c) &&
+        (!q || String(a.titre || '').toLowerCase().indexOf(q) > -1 || String(a.vendeur || '').toLowerCase().indexOf(q) > -1);
+    });
+    g.innerHTML = l.length ? l.map(card).join('')
+      : '<div class="empty">Aucune annonce dans cette catégorie pour le moment. Soyez le premier à publier !</div>';
+  }
+
   /* ---------- Démarrage ---------- */
   function init() {
     try {
@@ -438,12 +467,23 @@
         document.body.appendChild(b);
       }
       feedBox().addEventListener('click', onFeedClick);
+      var gr = document.getElementById('grid');
+      if (gr) gr.addEventListener('click', onFeedClick);
+      /* Masque le catalogue de démonstration de l'accueil */
+      var old = document.getElementById('feed');
+      if (old) old.style.display = 'none';
+      var st = document.getElementById('stories');
+      if (st) st.style.display = 'none';
+      [].slice.call(document.querySelectorAll('#v-feed h2')).forEach(function (h) {
+        if (h.textContent.indexOf('Dernières annonces') > -1) h.style.display = 'none';
+      });
       loadFeed();
     } catch (e) {
       console.error('AGROSSIGNOL social :', e);
     }
   }
 
+  window.renderMarket = renderMarketAnn;
   window.openPublish = openPublish;
   window.agsRefreshFeed = loadFeed;
 
