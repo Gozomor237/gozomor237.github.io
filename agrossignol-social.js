@@ -445,13 +445,31 @@
     var c = 'all';
     try { c = cat; } catch (e) {}
     var qe = document.getElementById('q');
-    var q = (qe ? qe.value : '').toLowerCase();
+    var q = norm(qe ? qe.value : '').trim();
     var l = ANN.filter(function (a) {
-      return (c === 'all' || a.categorie === c) &&
-        (!q || String(a.titre || '').toLowerCase().indexOf(q) > -1 || String(a.vendeur || '').toLowerCase().indexOf(q) > -1);
+      if (q) {
+        /* Une recherche porte sur toutes les catégories */
+        return norm([a.titre, a.vendeur, a.vendeur_pi, a.localite, a.description, a.categorie].join(' ')).indexOf(q) > -1;
+      }
+      return c === 'all' || a.categorie === c;
     });
     g.innerHTML = l.length ? l.map(card).join('')
-      : '<div class="empty">Aucune annonce dans cette catégorie pour le moment. Soyez le premier à publier !</div>';
+      : '<div class="empty">' + (q ? 'Aucun résultat pour cette recherche.' : 'Aucune annonce dans cette catégorie pour le moment. Soyez le premier à publier !') + '</div>';
+  }
+
+  /* Recherche sans accents ni majuscules (mais = maïs) */
+  function norm(t) {
+    return String(t == null ? '' : t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+
+  /* Barre de recherche de l'accueil : cherche dans toutes les annonces */
+  function homeSearch() {
+    var h = document.getElementById('hq'), q = document.getElementById('q');
+    if (q && h) q.value = h.value;
+    try { cat = 'all'; } catch (e) {}
+    try { renderChips(); } catch (e) {}
+    try { go('market'); } catch (e) {}
+    renderMarketAnn();
   }
 
   /* ---------- Démarrage ---------- */
@@ -484,6 +502,7 @@
   }
 
   window.renderMarket = renderMarketAnn;
+  window.hs = homeSearch;
   window.openPublish = openPublish;
   window.agsRefreshFeed = loadFeed;
 
