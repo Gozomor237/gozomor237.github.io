@@ -130,7 +130,15 @@
       '#ags-msg.err{color:#c0392b}#ags-msg.ok{color:#1f9d55}' +
       '.ags-go{background:#1f5130;color:#fff;border:0;border-radius:12px;padding:14px;width:100%;font:700 16px system-ui,sans-serif}' +
       '.ags-x{background:none;border:0;color:#6b6b5e;width:100%;padding:12px;font:15px system-ui,sans-serif}';
-    s.textContent += '@media(max-width:639px){#grid{grid-template-columns:1fr}}#grid .ags-card{margin-bottom:0}';
+    s.textContent += '@media(max-width:639px){#grid{grid-template-columns:1fr}}#grid .ags-card{margin-bottom:0}' +
+      /* Messages : en haut de l'écran, jamais sur la barre du bas */
+      '#toast{top:76px;bottom:auto;width:max-content;max-width:88vw;opacity:0;pointer-events:none;transform:translateX(-50%) translateY(-16px);transition:transform .3s,opacity .3s}' +
+      '#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}' +
+      /* Signal violet : utilisateur connecté avec Pi */
+      'nav.bottom button[data-v="me"]{position:relative}' +
+      '.ags-live{position:absolute;top:9px;left:calc(50% + 9px);width:12px;height:12px;border-radius:50%;background:#8b3fd9;border:2px solid #fff;animation:agspulse 2s infinite}' +
+      '@keyframes agspulse{0%{box-shadow:0 0 0 0 rgba(139,63,217,.55)}70%{box-shadow:0 0 0 8px rgba(139,63,217,0)}100%{box-shadow:0 0 0 0 rgba(139,63,217,0)}}' +
+      '@media(prefers-reduced-motion:reduce){.ags-live{animation:none}#toast{transition:none}}';
     document.head.appendChild(s);
   }
 
@@ -472,6 +480,23 @@
     renderMarketAnn();
   }
 
+  /* ---------- Signal violet à côté de Profil quand on est connecté ---------- */
+  function syncConn() {
+    var b = document.querySelector('nav.bottom button[data-v="me"]');
+    if (!b) return;
+    var on = !!piUser();
+    var d = b.querySelector('.ags-live');
+    if (on && !d) {
+      d = document.createElement('span');
+      d.className = 'ags-live';
+      d.setAttribute('role', 'img');
+      d.setAttribute('aria-label', 'Connecté avec Pi');
+      b.appendChild(d);
+    } else if (!on && d) {
+      d.remove();
+    }
+  }
+
   /* ---------- Démarrage ---------- */
   function init() {
     try {
@@ -496,6 +521,8 @@
         if (h.textContent.indexOf('Dernières annonces') > -1) h.style.display = 'none';
       });
       loadFeed();
+      syncConn();
+      setInterval(syncConn, 1000);
     } catch (e) {
       console.error('AGROSSIGNOL social :', e);
     }
