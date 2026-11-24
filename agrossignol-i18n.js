@@ -9,6 +9,53 @@
 
   /* Textes exacts : français -> anglais (apostrophes et espaces normalisés) */
   var D = {
+    /* Titres de page */
+    "AGROSSIGNOL — Plateforme agricole numérique panafricaine": "AGROSSIGNOL — Pan-African digital agriculture platform",
+    "Agrossignol – Diagnostic Plante": "Agrossignol – Plant Diagnosis",
+    /* Page de diagnostic */
+    "Diagnostic intelligent des plantes": "Smart plant diagnosis",
+    "Diagnostic par Photo": "Photo diagnosis",
+    "Photographiez votre plante malade et l'IA l'analysera instantanément": "Photograph your sick plant and the AI will analyze it instantly",
+    "Prendre une photo ou choisir depuis la galerie": "Take a photo or choose from the gallery",
+    "Formats acceptés : JPG, PNG, WEBP": "Accepted formats: JPG, PNG, WEBP",
+    "Aperçu plante": "Plant preview",
+    "✕ Changer": "✕ Change",
+    "🔬 Analyser la plante": "🔬 Analyze the plant",
+    "Analyse en cours...": "Analysis in progress...",
+    "L'IA examine votre plante 🌿": "The AI is examining your plant 🌿",
+    "❌ Une erreur s'est produite.": "❌ An error occurred.",
+    "Réessayer": "Try again",
+    "🔄 Nouvelle analyse": "🔄 New analysis",
+    "Cette image ne peut pas être lue. Essayez avec une autre photo (JPG ou PNG).": "This image cannot be read. Try another photo (JPG or PNG).",
+    "Pas de connexion Internet. Vérifiez votre réseau puis réessayez.": "No Internet connection. Check your network and try again.",
+    "L'analyse prend trop de temps. Vérifiez votre connexion et réessayez.": "The analysis is taking too long. Check your connection and try again.",
+    "Impossible de joindre le service. Vérifiez votre connexion Internet.": "Unable to reach the service. Check your Internet connection.",
+    "Une erreur s'est produite. Réessayez.": "An error occurred. Please try again.",
+    "Le service d'analyse est indisponible. Réessayez dans quelques minutes.": "The analysis service is unavailable. Try again in a few minutes.",
+    "Service IA non configuré sur le serveur.": "AI service not configured on the server.",
+    "Aucune image reçue.": "No image received.",
+    "Image trop lourde. Prenez une photo plus légère.": "Image too large. Take a lighter photo.",
+    "Le service IA est très sollicité. Réessayez dans une minute.": "The AI service is very busy. Try again in a minute.",
+    "Le service IA refuse la clé du serveur. Contactez l'administrateur.": "The AI service rejects the server key. Contact the administrator.",
+    "Le service IA est momentanément indisponible.": "The AI service is temporarily unavailable.",
+    "L'IA n'a pas renvoyé de réponse. Essayez avec une autre photo.": "The AI did not return an answer. Try another photo.",
+    "Impossible d'analyser l'image. Réessayez avec une photo plus nette.": "Unable to analyze the image. Try again with a clearer photo.",
+    "Résultat": "Result",
+    "Sévérité faible": "Low severity",
+    "Sévérité moyenne": "Medium severity",
+    "Sévérité élevée": "High severity",
+    "Plante saine": "Healthy plant",
+    "🎯 Niveau de confiance": "🎯 Confidence level",
+    "Précision IA": "AI accuracy",
+    "🔎 Symptômes observés": "🔎 Observed symptoms",
+    "✅ Conseils d'entretien": "✅ Care tips",
+    "💊 Traitements recommandés": "💊 Recommended treatments",
+    "🛡️ Prévention": "🛡️ Prevention",
+    "🪙 Produit recommandé": "🪙 Recommended product",
+    "Trouvez": "Find",
+    "sur le marché Agrossignol et payez en Pi": "on the Agrossignol marketplace and pay with Pi",
+    "Trouver sur le marché Agrossignol": "Find on the Agrossignol marketplace",
+    "Ce diagnostic est une estimation faite par une IA. En cas de doute, consultez un technicien agricole.": "This diagnosis is an AI estimate. If in doubt, consult an agricultural technician.",
     /* En-tête, accueil */
     "AGROSSIGNOL, accueil": "AGROSSIGNOL, home",
     "Connexion Pi": "Connect with Pi",
@@ -240,6 +287,8 @@
       m = n.match(R[i][0]);
       if (m) return n.replace(R[i][0], R[i][1]);
     }
+    m = n.match(/^❌ (.+)$/);
+    if (m) return '❌ ' + (tr(m[1]) || m[1]);
     /* "Erreur : message" */
     m = n.match(/^Erreur : (.+)$/);
     if (m) return 'Error: ' + (tr(m[1]) || m[1]);
@@ -258,7 +307,7 @@
     return null;
   }
 
-  var ATTRS = ['placeholder', 'aria-label', 'title'];
+  var ATTRS = ['placeholder', 'aria-label', 'title', 'alt'];
   var SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, INPUT: 1, NOSCRIPT: 1 };
 
   function textNode(node) {
@@ -330,7 +379,7 @@
   function applyHead() {
     document.documentElement.lang = lang;
     if (TITLE_FR === null) TITLE_FR = document.title;
-    document.title = lang === 'en' ? 'AGROSSIGNOL — Pan-African digital agriculture platform' : TITLE_FR;
+    document.title = lang === 'en' ? (tr(TITLE_FR) || TITLE_FR) : TITLE_FR;
   }
 
   function label(btn) {
@@ -363,8 +412,10 @@
     b.onclick = function () { setLang(lang === 'en' ? 'fr' : 'en'); };
     var login = document.getElementById('btn-login');
     var hin = document.querySelector('header .hin');
+    var hdr = document.querySelector('header');
     if (hin && login) hin.insertBefore(b, login);
     else if (hin) hin.appendChild(b);
+    else if (hdr) { b.style.marginLeft = 'auto'; hdr.appendChild(b); }
     else document.body.appendChild(b);
   }
 
@@ -412,13 +463,14 @@
         });
       }).observe(document.documentElement, {
         childList: true, subtree: true, characterData: true,
-        attributes: true, attributeFilter: ['placeholder', 'aria-label', 'title', 'href']
+        attributes: true, attributeFilter: ['placeholder', 'aria-label', 'title', 'alt', 'href']
       });
     } catch (e) {
       console.error('AGROSSIGNOL langue :', e);
     }
   }
 
+  window.agsGetLang = function () { return lang; };
   window.agsTr = tr;
   window.agsSetLang = setLang;
 
