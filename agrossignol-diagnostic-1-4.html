@@ -114,6 +114,11 @@ function echapper(t) {
   });
 }
 
+// Langue choisie sur le site (anglais par défaut)
+function langueActuelle() {
+  try { return window.agsGetLang ? window.agsGetLang() : 'en'; } catch (e) { return 'en'; }
+}
+
 function afficherErreur(message) {
   document.getElementById('loading').style.display = 'none';
   document.getElementById('error-msg').textContent = '❌ ' + message;
@@ -189,7 +194,7 @@ async function analyzeImage() {
     var response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: imageBase64, mimeType: 'image/jpeg' }),
+      body: JSON.stringify({ image: imageBase64, mimeType: 'image/jpeg', langue: langueActuelle() }),
       signal: controleur.signal
     });
     var data = {};
@@ -250,8 +255,8 @@ function showResult(r) {
   if (!isSaine && r.produit_recommande) {
     html += '<div class="pi-payment-card">'
       + '<h4>🪙 Produit recommandé</h4>'
-      + '<p>Achetez <strong>' + echapper(r.produit_recommande) + '</strong> via Agrossignol, payez en Pi Network</p>'
-      + '<button class="pi-btn" onclick="simulerPaiementPi()"><span>π</span> Acheter avec Pi Network</button>'
+      + '<p>Trouvez <strong>' + echapper(r.produit_recommande) + '</strong> sur le marché Agrossignol et payez en Pi</p>'
+      + '<button class="pi-btn" onclick="ouvrirMarche()"><span>π</span> Trouver sur le marché Agrossignol</button>'
       + '</div>';
   }
   html += '<p class="avertissement">Ce diagnostic est une estimation faite par une IA. En cas de doute, consultez un technicien agricole.</p>';
@@ -261,9 +266,11 @@ function showResult(r) {
   document.getElementById('new-analysis-btn').style.display = 'block';
 }
 
-function simulerPaiementPi() {
-  alert('💜 Intégration Pi Payment\n\nCette fonction déclenchera Pi.createPayment()');
+// Renvoie vers le marché d'Agrossignol, où l'achat se fait en Pi
+function ouvrirMarche() {
+  window.location.href = 'index.html';
 }
 </script>
+<script src="agrossignol-i18n.js"></script>
 </body>
 </html>
