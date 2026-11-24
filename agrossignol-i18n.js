@@ -15,7 +15,7 @@
     "Utilisateur": "User",
     "Plateforme agricole numérique panafricaine": "Pan-African digital agriculture platform",
     "Produisez, vendez et payez avec Pi.": "Grow, sell and pay with Pi.",
-    "Chercher un produit ou un vendeur": "Search for a product or a seller",
+    "Chercher un produit ou un vendeur": "Search products",
     "Recherche": "Search",
     "Chercher": "Search",
     "Catégories": "Categories",
@@ -195,6 +195,19 @@
     [/^Votre annonce · (.+)$/, "Your listing · $1"]
   ];
 
+  /* Unités courantes saisies par les vendeurs */
+  var UN = {
+    "unité": "unit", "unite": "unit", "sac": "bag", "panier": "basket", "boîte": "box", "boite": "box",
+    "régime": "bunch", "regime": "bunch", "botte": "bunch", "tas": "pile", "sachet": "sachet",
+    "flacon": "bottle", "rouleau": "roll", "tête": "head", "tete": "head", "kg vif": "kg live weight"
+  };
+  function unit(u) {
+    var t = UN[norm(u).toLowerCase()];
+    if (!t) return u;
+    var c = u.charAt(0);
+    return (c !== c.toLowerCase()) ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+  }
+
   var WA_FR = 'Bonjour, je suis intéressé(e) par votre annonce AGROSSIGNOL : ';
   var WA_EN = 'Hello, I am interested in your AGROSSIGNOL listing: ';
   var TITLE_FR = null;
@@ -219,6 +232,10 @@
     if (!n) return null;
     if (Object.prototype.hasOwnProperty.call(DN, n)) return DN[n];
     var i, m;
+    m = n.match(/^Quantité disponible : (\S+)(?: (.+))?$/);
+    if (m) return 'Available quantity: ' + m[1] + (m[2] ? ' ' + unit(m[2]) : '');
+    m = n.match(/^\/ ?(.+)$/);
+    if (m && unit(m[1]) !== m[1]) return '/ ' + unit(m[1]);
     for (i = 0; i < R.length; i++) {
       m = n.match(R[i][0]);
       if (m) return n.replace(R[i][0], R[i][1]);
@@ -336,6 +353,7 @@
     var st = document.createElement('style');
     st.textContent =
       '#agsl-btn{background:transparent;border:1.5px solid #fefae0;color:#fefae0;border-radius:50px;padding:6px 10px;min-height:36px;font-weight:700;font-size:.78rem;flex-shrink:0}' +
+      '.cat span{font-size:.78rem;line-height:1.15;word-break:break-word}' +
       '@media(max-width:430px){.hin{gap:6px}.logo b{font-size:1.02rem;letter-spacing:.03em}.logo svg{width:26px;height:26px}#btn-login{padding:8px 12px;font-size:.78rem}}';
     document.head.appendChild(st);
     var b = document.createElement('button');
