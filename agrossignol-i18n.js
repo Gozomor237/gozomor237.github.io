@@ -38,6 +38,7 @@
     "Le service IA est très sollicité. Réessayez dans une minute.": "The AI service is very busy. Try again in a minute.",
     "Le service IA refuse la clé du serveur. Contactez l'administrateur.": "The AI service rejects the server key. Contact the administrator.",
     "Le service IA est momentanément indisponible.": "The AI service is temporarily unavailable.",
+    "Le service IA met trop de temps à répondre. Réessayez.": "The AI service is taking too long to respond. Please try again.",
     "L'IA n'a pas renvoyé de réponse. Essayez avec une autre photo.": "The AI did not return an answer. Try another photo.",
     "Impossible d'analyser l'image. Réessayez avec une photo plus nette.": "Unable to analyze the image. Try again with a clearer photo.",
     "Résultat": "Result",
@@ -316,7 +317,7 @@
     if (!p || SKIP[p.nodeName]) return;
     var v = node.nodeValue;
     var t = tr(v);
-    if (t == null) return;
+    if (t == null || t === v.trim()) return;
     var lead = (v.match(/^\s*/) || [''])[0];
     var trail = (v.match(/\s*$/) || [''])[0];
     if (node.__agsFr === undefined) node.__agsFr = v;
@@ -329,7 +330,7 @@
       var v = el.getAttribute(a);
       if (v == null) return;
       var t = tr(v);
-      if (t == null) return;
+      if (t == null || t === v) return;
       el.__agsA = el.__agsA || {};
       if (el.__agsA[a] === undefined) el.__agsA[a] = v;
       el.setAttribute(a, t);
